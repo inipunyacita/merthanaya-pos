@@ -180,7 +180,7 @@ export default function RunnerPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900">
+        <div className="min-h-screen bg-linear-to-br from-slate-900 via-indigo-900 to-slate-900">
             <Toaster richColors position="top-center" />
 
             {/* Header */}
@@ -259,7 +259,7 @@ export default function RunnerPage() {
                                                 className="w-full h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition"
                                             />
                                         ) : (
-                                            <div className="w-full h-24 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-lg mb-2 flex items-center justify-center">
+                                            <div className="w-full h-24 bg-linear-to-br from-indigo-500/20 to-purple-500/20 rounded-lg mb-2 flex items-center justify-center">
                                                 <span className="text-3xl">📦</span>
                                             </div>
                                         )}
@@ -362,7 +362,7 @@ export default function RunnerPage() {
                             </span>
                         </div>
                         <Button
-                            className="w-full h-14 text-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                            className="w-full h-14 text-lg bg-linear-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                             onClick={handlePrintBill}
                             disabled={cart.length === 0 || submitting}
                         >
@@ -400,7 +400,7 @@ export default function RunnerPage() {
                         </Button>
                         <Button
                             onClick={handleQuantitySubmit}
-                            className="bg-gradient-to-r from-green-500 to-emerald-500"
+                            className="bg-linear-to-r from-green-500 to-emerald-500"
                         >
                             Add to Cart
                         </Button>
@@ -427,7 +427,7 @@ export default function RunnerPage() {
                     <DialogFooter className="justify-center">
                         <Button
                             onClick={() => setTicketDialogOpen(false)}
-                            className="bg-gradient-to-r from-indigo-500 to-purple-500"
+                            className="bg-linear-to-r from-indigo-500 to-purple-500"
                         >
                             New Order
                         </Button>

@@ -161,7 +161,7 @@ export default function CashierPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900">
+        <div className="min-h-screen bg-linear-to-br from-slate-900 via-emerald-900 to-slate-900">
             <Toaster richColors position="top-right" />
 
             {/* Header */}
@@ -293,7 +293,7 @@ export default function CashierPage() {
                         <Button
                             onClick={() => selectedOrder && handlePayOrder(selectedOrder.id)}
                             disabled={processing}
-                            className="flex-1 h-12 text-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                            className="flex-1 h-12 text-lg bg-linear-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                         >
                             {processing ? 'Processing...' : '✅ Confirm Payment'}
                         </Button>

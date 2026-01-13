@@ -119,10 +119,16 @@ export default function ProductsPage() {
             if (editingProduct) {
                 const updateData: ProductUpdate = { ...formData };
                 await productApi.update(editingProduct.id, updateData);
-                toast.success('Product updated successfully');
+                toast.success('Product Updated', {
+                    description: `"${formData.name}" has been updated successfully`,
+                    duration: 3000,
+                });
             } else {
                 await productApi.create(formData);
-                toast.success('Product created successfully');
+                toast.success('Product Created', {
+                    description: `"${formData.name}" has been added to inventory`,
+                    duration: 3000,
+                });
             }
             setIsDialogOpen(false);
             resetForm();
@@ -137,7 +143,10 @@ export default function ProductsPage() {
         if (!confirm(`Are you sure you want to deactivate "${product.name}"?`)) return;
         try {
             await productApi.delete(product.id);
-            toast.success('Product deactivated');
+            toast.success('Product Deactivated', {
+                description: `"${product.name}" has been deactivated`,
+                duration: 3000,
+            });
             fetchProducts();
         } catch (error) {
             console.error('Failed to delete product:', error);
@@ -159,16 +168,16 @@ export default function ProductsPage() {
     const showWeightUnit = ['Daging', 'Sayur', 'Buah'].includes(formData.category);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-            <Toaster richColors position="top-right" />
+        <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900">
+            <Toaster richColors position="top-right" closeButton />
 
             {/* Header */}
             <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
                 <div className="container mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-white">Product Manager</h1>
-                            <p className="text-sm text-gray-400">Manage your store inventory</p>
+                            <h1 className="text-2xl font-bold text-white">ADMIN - Merthanaya</h1>
+                            <p className="text-sm text-gray-400">Store and Inventory Management Tools</p>
                         </div>
                         <nav className="flex gap-4">
                             <a href="/runner" className="px-4 py-2 text-gray-300 hover:text-white transition">Runner</a>
@@ -202,7 +211,7 @@ export default function ProductsPage() {
                     </Select>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button onClick={() => openDialog()} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                            <Button onClick={() => openDialog()} className="bg-linear-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
                                 + Add Product
                             </Button>
                         </DialogTrigger>
@@ -253,8 +262,10 @@ export default function ProductsPage() {
                                             type="number"
                                             min="0"
                                             step="500"
-                                            value={formData.price}
-                                            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                                            value={formData.price || ''}
+                                            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) || 0 })}
+                                            onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                            placeholder="0"
                                             className="col-span-3 bg-white/10 border-white/20"
                                             required
                                         />
@@ -267,8 +278,10 @@ export default function ProductsPage() {
                                             id="stock"
                                             type="number"
                                             min="0"
-                                            value={formData.stock}
-                                            onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
+                                            value={formData.stock || ''}
+                                            onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) || 0 })}
+                                            onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                            placeholder="0"
                                             className="col-span-3 bg-white/10 border-white/20"
                                         />
                                     </div>
@@ -325,21 +338,21 @@ export default function ProductsPage() {
                                         <Label htmlFor="is_active" className="text-right">Active</Label>
                                         <div className="col-span-3 flex items-center">
                                             <Switch
-                                                id="is_active"
+                                                id="is_active" className="bg-white/10 border-white/200"
                                                 checked={formData.is_active}
                                                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                                             />
-                                            <span className="ml-2 text-sm text-gray-400">
+                                            <span className="ml-2 text-sm text-gray-200">
                                                 {formData.is_active ? 'Available for sale' : 'Hidden from runners'}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-400 text-black hover:text-white hover:bg-white/10">
                                         Cancel
                                     </Button>
-                                    <Button type="submit" className="bg-gradient-to-r from-purple-500 to-pink-500">
+                                    <Button type="submit" className="bg-linear-to-r from-purple-500 to-pink-500">
                                         {editingProduct ? 'Save Changes' : 'Create Product'}
                                     </Button>
                                 </DialogFooter>
