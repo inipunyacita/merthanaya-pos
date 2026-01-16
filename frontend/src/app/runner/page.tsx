@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +29,11 @@ export default function RunnerPage() {
     const [activeCategory, setActiveCategory] = useState<string>('all');
     const [submitting, setSubmitting] = useState(false);
 
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const PAGE_SIZE = 8;
+
     // Quantity dialog state
     const [quantityDialogOpen, setQuantityDialogOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -40,7 +46,10 @@ export default function RunnerPage() {
     const fetchProducts = useCallback(async () => {
         try {
             setLoading(true);
-            const params: { category?: string; search?: string } = {};
+            const params: { category?: string; search?: string; page?: number; page_size?: number } = {
+                page: currentPage,
+                page_size: PAGE_SIZE
+            };
             if (activeCategory && activeCategory !== 'all') {
                 params.category = activeCategory;
             }
@@ -49,13 +58,14 @@ export default function RunnerPage() {
             }
             const response = await productApi.list(params);
             setProducts(response.products);
+            setTotalProducts(response.total);
         } catch (error) {
             console.error('Failed to fetch products:', error);
             toast.error('Failed to load products');
         } finally {
             setLoading(false);
         }
-    }, [activeCategory, searchTerm]);
+    }, [activeCategory, searchTerm, currentPage]);
 
     useEffect(() => {
         fetchProducts();
@@ -180,29 +190,32 @@ export default function RunnerPage() {
     };
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-slate-900 via-indigo-900 to-slate-900">
+        <div className="min-h-screen bg-linear-to-br from-slate-50 via-indigo-50 to-white">
             <Toaster richColors position="top-center" />
 
             {/* Header */}
-            <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl sticky top-0 z-40">
+            <header className="border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center justify-between gap-4">
-                        <h1 className="text-xl font-bold text-white shrink-0">🛒 Runner POS</h1>
+                        <img src="/favicon.svg" className="w-6 h-6" alt="" /> <h1 className="text-xl font-bold text-slate-800 shrink-0">Runner POS</h1>
 
                         {/* Search Bar */}
                         <div className="flex-1 max-w-xl">
                             <Input
                                 placeholder="Search or scan barcode..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                                 onKeyDown={handleSearchKeyPress}
-                                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                                className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
                             />
                         </div>
 
                         <nav className="flex gap-2 shrink-0">
-                            <a href="/admin/products" className="px-3 py-1 text-sm text-gray-300 hover:text-white">Admin</a>
-                            <a href="/cashier" className="px-3 py-1 text-sm text-gray-300 hover:text-white">Cashier</a>
+                            {/* <a href="/admin/products" className="px-3 py-1 text-sm text-slate-600 hover:text-indigo-600 transition-colors">Admin</a> */}
+                            <a href="/cashier" className="px-3 py-1 text-sm text-slate-600 hover:text-indigo-600 transition-colors">Cashier</a>
                         </nav>
                     </div>
                 </div>
@@ -216,8 +229,11 @@ export default function RunnerPage() {
                         <Button
                             variant={activeCategory === 'all' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setActiveCategory('all')}
-                            className={activeCategory === 'all' ? 'bg-indigo-600' : 'border-white/20 text-gray-300'}
+                            onClick={() => {
+                                setActiveCategory('all');
+                                setCurrentPage(1);
+                            }}
+                            className={activeCategory === 'all' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}
                         >
                             All
                         </Button>
@@ -226,8 +242,11 @@ export default function RunnerPage() {
                                 key={cat}
                                 variant={activeCategory === cat ? 'default' : 'outline'}
                                 size="sm"
-                                onClick={() => setActiveCategory(cat)}
-                                className={activeCategory === cat ? 'bg-indigo-600' : 'border-white/20 text-gray-300'}
+                                onClick={() => {
+                                    setActiveCategory(cat);
+                                    setCurrentPage(1);
+                                }}
+                                className={activeCategory === cat ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}
                             >
                                 {cat}
                             </Button>
@@ -236,19 +255,19 @@ export default function RunnerPage() {
 
                     {/* Product Grid */}
                     {loading ? (
-                        <div className="flex items-center justify-center h-64 text-gray-400">
+                        <div className="flex items-center justify-center h-64 text-slate-500">
                             Loading products...
                         </div>
                     ) : products.length === 0 ? (
-                        <div className="flex items-center justify-center h-64 text-gray-400">
+                        <div className="flex items-center justify-center h-64 text-slate-500">
                             No products found
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                             {products.map((product) => (
                                 <Card
                                     key={product.id}
-                                    className="bg-white/5 border-white/10 hover:bg-white/10 transition cursor-pointer group"
+                                    className="bg-white border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100 transition-all duration-200 cursor-pointer group"
                                     onClick={() => handleProductClick(product)}
                                 >
                                     <CardContent className="p-3">
@@ -259,17 +278,17 @@ export default function RunnerPage() {
                                                 className="w-full h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition"
                                             />
                                         ) : (
-                                            <div className="w-full h-24 bg-linear-to-br from-indigo-500/20 to-purple-500/20 rounded-lg mb-2 flex items-center justify-center">
+                                            <div className="w-full h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
                                                 <span className="text-3xl">📦</span>
                                             </div>
                                         )}
-                                        <h3 className="text-white font-medium text-sm truncate">{product.name}</h3>
+                                        <h3 className="text-slate-800 font-medium text-sm truncate">{product.name}</h3>
                                         <div className="flex items-center justify-between mt-1">
-                                            <span className="text-green-400 font-mono text-sm">
+                                            <span className="text-green-600 font-mono text-sm font-semibold">
                                                 {formatPrice(product.price)}
                                                 {product.unit_type === 'weight' && '/kg'}
                                             </span>
-                                            <Badge variant="outline" className="text-xs border-indigo-500/50 text-indigo-300">
+                                            <Badge variant="outline" className="text-xs border-indigo-300 text-indigo-600 bg-indigo-50">
                                                 {product.category}
                                             </Badge>
                                         </div>
@@ -278,19 +297,52 @@ export default function RunnerPage() {
                             ))}
                         </div>
                     )}
+
+                    {/* Pagination Controls */}
+                    {!loading && totalProducts > PAGE_SIZE && (
+                        <div className="flex items-center justify-center gap-4 mt-6 pb-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setCurrentPage(prev => Math.max(1, prev - 1));
+                                }}
+                                disabled={currentPage === 1}
+                                className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                <ChevronLeft className="h-4 w-4 mr-1" />
+                                Previous
+                            </Button>
+                            <span className="text-sm text-slate-600">
+                                Page {currentPage} of {Math.ceil(totalProducts / PAGE_SIZE)}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setCurrentPage(prev => Math.min(Math.ceil(totalProducts / PAGE_SIZE), prev + 1));
+                                }}
+                                disabled={currentPage >= Math.ceil(totalProducts / PAGE_SIZE)}
+                                className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Next
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                        </div>
+                    )}
                 </main>
 
                 {/* Sidebar - Cart */}
-                <aside className="w-80 border-l border-white/10 bg-black/30 backdrop-blur-xl flex flex-col">
-                    <div className="p-4 border-b border-white/10">
+                <aside className="w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col shadow-lg">
+                    <div className="p-4 border-b border-slate-200">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-white">Cart</h2>
+                            <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
                             {cart.length > 0 && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={clearCart}
-                                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
                                 >
                                     Clear
                                 </Button>
@@ -300,7 +352,7 @@ export default function RunnerPage() {
 
                     <ScrollArea className="flex-1 p-4">
                         {cart.length === 0 ? (
-                            <div className="text-center text-gray-400 py-8">
+                            <div className="text-center text-slate-400 py-8">
                                 Cart is empty
                             </div>
                         ) : (
@@ -308,15 +360,15 @@ export default function RunnerPage() {
                                 {cart.map((item) => (
                                     <div
                                         key={item.product.id}
-                                        className="bg-white/5 rounded-lg p-3"
+                                        className="bg-slate-50 border border-slate-200 rounded-lg p-3"
                                     >
                                         <div className="flex justify-between items-start mb-2">
-                                            <h4 className="text-white text-sm font-medium truncate flex-1">
+                                            <h4 className="text-slate-800 text-sm font-medium truncate flex-1">
                                                 {item.product.name}
                                             </h4>
                                             <button
                                                 onClick={() => removeFromCart(item.product.id)}
-                                                className="text-gray-400 hover:text-red-400 ml-2"
+                                                className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
                                             >
                                                 ✕
                                             </button>
@@ -326,24 +378,24 @@ export default function RunnerPage() {
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 w-7 p-0 border-white/20"
+                                                    className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
                                                     onClick={() => updateCartQuantity(item.product.id, item.quantity - (item.product.unit_type === 'weight' ? 0.1 : 1))}
                                                 >
                                                     -
                                                 </Button>
-                                                <span className="text-white w-12 text-center">
+                                                <span className="text-slate-800 w-12 text-center font-medium">
                                                     {item.quantity}{item.product.unit_type === 'weight' ? 'kg' : ''}
                                                 </span>
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 w-7 p-0 border-white/20"
+                                                    className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
                                                     onClick={() => updateCartQuantity(item.product.id, item.quantity + (item.product.unit_type === 'weight' ? 0.1 : 1))}
                                                 >
                                                     +
                                                 </Button>
                                             </div>
-                                            <span className="text-green-400 font-mono text-sm">
+                                            <span className="text-green-600 font-mono text-sm font-semibold">
                                                 {formatPrice(item.product.price * item.quantity)}
                                             </span>
                                         </div>
@@ -354,10 +406,10 @@ export default function RunnerPage() {
                     </ScrollArea>
 
                     {/* Cart Footer */}
-                    <div className="p-4 border-t border-white/10">
+                    <div className="p-4 border-t border-slate-200">
                         <div className="flex justify-between items-center mb-4">
-                            <span className="text-gray-400">Total</span>
-                            <span className="text-2xl font-bold text-white">
+                            <span className="text-slate-500">Total</span>
+                            <span className="text-2xl font-bold text-slate-800">
                                 {formatPrice(cartTotal)}
                             </span>
                         </div>
@@ -374,15 +426,15 @@ export default function RunnerPage() {
 
             {/* Quantity Dialog */}
             <Dialog open={quantityDialogOpen} onOpenChange={setQuantityDialogOpen}>
-                <DialogContent className="sm:max-w-[400px] bg-slate-900 border-white/20 text-white">
+                <DialogContent className="sm:max-w-[400px] bg-white border-slate-200 shadow-xl">
                     <DialogHeader>
-                        <DialogTitle>Enter Quantity</DialogTitle>
-                        <DialogDescription className="text-gray-400">
+                        <DialogTitle className="text-slate-800">Enter Quantity</DialogTitle>
+                        <DialogDescription className="text-slate-500">
                             {selectedProduct?.name} - {formatPrice(selectedProduct?.price || 0)}/kg
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
-                        <Label htmlFor="quantity">Weight (kg)</Label>
+                        <Label htmlFor="quantity" className="text-slate-700">Weight (kg)</Label>
                         <Input
                             id="quantity"
                             type="number"
@@ -390,12 +442,12 @@ export default function RunnerPage() {
                             step="0.1"
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
-                            className="mt-2 bg-white/10 border-white/20 text-center text-2xl"
+                            className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-2xl focus:border-indigo-500 focus:ring-indigo-500"
                             autoFocus
                         />
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setQuantityDialogOpen(false)}>
+                        <Button variant="outline" onClick={() => setQuantityDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
                             Cancel
                         </Button>
                         <Button
@@ -410,17 +462,17 @@ export default function RunnerPage() {
 
             {/* Ticket Success Dialog */}
             <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-                <DialogContent className="sm:max-w-[350px] bg-slate-900 border-white/20 text-white text-center">
+                <DialogContent className="sm:max-w-[350px] bg-white border-slate-200 shadow-xl text-center">
                     <DialogHeader>
-                        <DialogTitle className="text-2xl">✅ Ticket Created!</DialogTitle>
+                        <DialogTitle className="text-2xl text-slate-800">✅ Ticket Created!</DialogTitle>
                     </DialogHeader>
                     <div className="py-8">
-                        <div className="text-6xl font-bold text-green-400 mb-4">
+                        <div className="text-6xl font-bold text-green-600 mb-4">
                             {lastTicket?.shortId}
                         </div>
-                        <Separator className="bg-white/20 my-4" />
-                        <div className="text-gray-400">Total Amount</div>
-                        <div className="text-3xl font-bold text-white">
+                        <Separator className="bg-slate-200 my-4" />
+                        <div className="text-slate-500">Total Amount</div>
+                        <div className="text-3xl font-bold text-slate-800">
                             {formatPrice(lastTicket?.total || 0)}
                         </div>
                     </div>

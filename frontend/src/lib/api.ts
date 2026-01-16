@@ -20,7 +20,7 @@ const api = axios.create({
 
 // Product API
 export const productApi = {
-    list: async (params?: { category?: string; active_only?: boolean; search?: string }) => {
+    list: async (params?: { category?: string; active_only?: boolean; search?: string; page?: number; page_size?: number }) => {
         const response = await api.get<ProductListResponse>('/products/', { params });
         return response.data;
     },

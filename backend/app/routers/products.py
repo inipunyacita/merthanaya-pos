@@ -18,11 +18,26 @@ router = APIRouter(prefix="/products", tags=["products"])
 async def list_products(
     category: Optional[str] = Query(None, description="Filter by category"),
     active_only: bool = Query(True, description="Show only active products"),
-    search: Optional[str] = Query(None, description="Search by name or barcode")
+    search: Optional[str] = Query(None, description="Search by name or barcode"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(0, ge=0, description="Items per page (0 for all)")
 ):
-    """List all products with optional filtering."""
+    """List all products with optional filtering and pagination."""
     try:
         db = get_db()
+        
+        # First, get total count with filters
+        count_query = db.table("products").select("id", count="exact")
+        if active_only:
+            count_query = count_query.eq("is_active", True)
+        if category:
+            count_query = count_query.eq("category", category)
+        if search:
+            count_query = count_query.or_(f"name.ilike.%{search}%,barcode.ilike.%{search}%")
+        count_result = count_query.execute()
+        total = count_result.count if count_result.count is not None else len(count_result.data)
+        
+        # Main query with pagination
         query = db.table("products").select("*")
         
         if active_only:
@@ -35,10 +50,16 @@ async def list_products(
             query = query.or_(f"name.ilike.%{search}%,barcode.ilike.%{search}%")
         
         query = query.order("name")
+        
+        # Apply pagination if page_size > 0
+        if page_size > 0:
+            offset = (page - 1) * page_size
+            query = query.range(offset, offset + page_size - 1)
+        
         result = query.execute()
         
         products = [ProductResponse(**p) for p in result.data]
-        return ProductListResponse(products=products, total=len(products))
+        return ProductListResponse(products=products, total=total)
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
