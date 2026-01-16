@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Toaster, toast } from 'sonner';
 import { Product, CartItem, PRODUCT_CATEGORIES } from '@/types';
 import { productApi, orderApi } from '@/lib/api';
@@ -41,7 +48,12 @@ export default function RunnerPage() {
 
     // Ticket dialog state
     const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
-    const [lastTicket, setLastTicket] = useState<{ shortId: string; total: number } | null>(null);
+    const [lastTicket, setLastTicket] = useState<{
+        shortId: string;
+        total: number;
+        items: CartItem[];
+        createdAt: Date;
+    } | null>(null);
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -87,12 +99,14 @@ export default function RunnerPage() {
     };
 
     const updateCartQuantity = (productId: string, qty: number) => {
-        if (qty <= 0) {
+        // Round to 2 decimal places to fix floating-point precision issues
+        const roundedQty = Math.round(qty * 100) / 100;
+        if (roundedQty <= 0) {
             setCart((prev) => prev.filter((item) => item.product.id !== productId));
         } else {
             setCart((prev) =>
                 prev.map((item) =>
-                    item.product.id === productId ? { ...item, quantity: qty } : item
+                    item.product.id === productId ? { ...item, quantity: roundedQty } : item
                 )
             );
         }
@@ -166,9 +180,12 @@ export default function RunnerPage() {
 
             const response = await orderApi.create(orderData);
 
+            // Save cart items before clearing for the invoice display
             setLastTicket({
                 shortId: response.short_id,
                 total: response.total_amount,
+                items: [...cart],
+                createdAt: new Date(),
             });
             setTicketDialogOpen(true);
             clearCart();
@@ -221,207 +238,230 @@ export default function RunnerPage() {
                 </div>
             </header>
 
-            <div className="flex h-[calc(100vh-60px)]">
-                {/* Main Content - Product Grid */}
-                <main className="flex-1 overflow-auto p-4">
-                    {/* Category Tabs */}
-                    <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                        <Button
-                            variant={activeCategory === 'all' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => {
-                                setActiveCategory('all');
-                                setCurrentPage(1);
-                            }}
-                            className={activeCategory === 'all' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}
-                        >
-                            All
-                        </Button>
-                        {PRODUCT_CATEGORIES.map((cat) => (
+            <div className="container mx-auto px-4">
+                <div className="flex h-[calc(100vh-60px)]">
+                    {/* Main Content - Product Grid */}
+                    <main className="flex-1 overflow-auto py-4 pr-4">
+                        {/* Category Tabs */}
+                        <div className="flex gap-2 mb-4 items-center">
                             <Button
-                                key={cat}
-                                variant={activeCategory === cat ? 'default' : 'outline'}
+                                variant={activeCategory === 'all' ? 'default' : 'outline'}
                                 size="sm"
                                 onClick={() => {
-                                    setActiveCategory(cat);
+                                    setActiveCategory('all');
                                     setCurrentPage(1);
                                 }}
-                                className={activeCategory === cat ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}
+                                className={activeCategory === 'all' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}
                             >
-                                {cat}
+                                All
                             </Button>
-                        ))}
-                    </div>
-
-                    {/* Product Grid */}
-                    {loading ? (
-                        <div className="flex items-center justify-center h-64 text-slate-500">
-                            Loading products...
-                        </div>
-                    ) : products.length === 0 ? (
-                        <div className="flex items-center justify-center h-64 text-slate-500">
-                            No products found
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {products.map((product) => (
-                                <Card
-                                    key={product.id}
-                                    className="bg-white border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100 transition-all duration-200 cursor-pointer group"
-                                    onClick={() => handleProductClick(product)}
+                            <Select
+                                value={activeCategory !== 'all' ? activeCategory : ''}
+                                onValueChange={(value) => {
+                                    setActiveCategory(value);
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <SelectTrigger
+                                    className={`w-[180px] h-9 text-sm ${activeCategory !== 'all'
+                                        ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 [&_svg]:text-white'
+                                        : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400'
+                                        }`}
                                 >
-                                    <CardContent className="p-3">
-                                        {product.image_url ? (
-                                            <img
-                                                src={product.image_url}
-                                                alt={product.name}
-                                                className="w-full h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
-                                                <span className="text-3xl">📦</span>
-                                            </div>
-                                        )}
-                                        <h3 className="text-slate-800 font-medium text-sm truncate">{product.name}</h3>
-                                        <div className="flex items-center justify-between mt-1">
-                                            <span className="text-green-600 font-mono text-sm font-semibold">
-                                                {formatPrice(product.price)}
-                                                {product.unit_type === 'weight' && '/kg'}
-                                            </span>
+                                    <SelectValue placeholder="Other Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PRODUCT_CATEGORIES.map((cat) => (
+                                        <SelectItem key={cat} value={cat}>
+                                            {cat}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Product Grid */}
+                        {loading ? (
+                            <div className="flex items-center justify-center h-64 text-slate-500">
+                                Loading products...
+                            </div>
+                        ) : products.length === 0 ? (
+                            <div className="flex items-center justify-center h-64 text-slate-500">
+                                No products found
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {products.map((product) => (
+                                    <Card
+                                        key={product.id}
+                                        className="bg-white border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100 transition-all duration-200 cursor-pointer group"
+                                        onClick={() => handleProductClick(product)}
+                                    >
+                                        <CardContent className="p-3">
+                                            {product.image_url ? (
+                                                <img
+                                                    src={product.image_url}
+                                                    alt={product.name}
+                                                    className="w-full h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
+                                                    <span className="text-3xl">📦</span>
+                                                </div>
+                                            )}
+                                            <h3 className="text-slate-800 font-medium text-sm truncate">{product.name}</h3>
                                             <Badge variant="outline" className="text-xs border-indigo-300 text-indigo-600 bg-indigo-50">
                                                 {product.category}
                                             </Badge>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Pagination Controls */}
-                    {!loading && totalProducts > PAGE_SIZE && (
-                        <div className="flex items-center justify-center gap-4 mt-6 pb-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    setCurrentPage(prev => Math.max(1, prev - 1));
-                                }}
-                                disabled={currentPage === 1}
-                                className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
-                            >
-                                <ChevronLeft className="h-4 w-4 mr-1" />
-                                Previous
-                            </Button>
-                            <span className="text-sm text-slate-600">
-                                Page {currentPage} of {Math.ceil(totalProducts / PAGE_SIZE)}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    setCurrentPage(prev => Math.min(Math.ceil(totalProducts / PAGE_SIZE), prev + 1));
-                                }}
-                                disabled={currentPage >= Math.ceil(totalProducts / PAGE_SIZE)}
-                                className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
-                            >
-                                Next
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                            </Button>
-                        </div>
-                    )}
-                </main>
-
-                {/* Sidebar - Cart */}
-                <aside className="w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col shadow-lg">
-                    <div className="p-4 border-b border-slate-200">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
-                            {cart.length > 0 && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={clearCart}
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                >
-                                    Clear
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    <ScrollArea className="flex-1 p-4">
-                        {cart.length === 0 ? (
-                            <div className="text-center text-slate-400 py-8">
-                                Cart is empty
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {cart.map((item) => (
-                                    <div
-                                        key={item.product.id}
-                                        className="bg-slate-50 border border-slate-200 rounded-lg p-3"
-                                    >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h4 className="text-slate-800 text-sm font-medium truncate flex-1">
-                                                {item.product.name}
-                                            </h4>
-                                            <button
-                                                onClick={() => removeFromCart(item.product.id)}
-                                                className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
-                                                    onClick={() => updateCartQuantity(item.product.id, item.quantity - (item.product.unit_type === 'weight' ? 0.1 : 1))}
-                                                >
-                                                    -
-                                                </Button>
-                                                <span className="text-slate-800 w-12 text-center font-medium">
-                                                    {item.quantity}{item.product.unit_type === 'weight' ? 'kg' : ''}
+                                            <div className="mt-1">
+                                                <span className="text-green-600 font-mono text-sm font-semibold">
+                                                    {formatPrice(product.price)}
+                                                    {product.unit_type === 'weight' ? (
+                                                        <span className="text-gray-500">/kg</span>
+                                                    ) : product.unit_type === 'pcs' ? (
+                                                        <span className="text-gray-500">/pcs</span>
+                                                    ) : (
+                                                        <span className="text-gray-500">/item</span>
+                                                    )}
                                                 </span>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
-                                                    onClick={() => updateCartQuantity(item.product.id, item.quantity + (item.product.unit_type === 'weight' ? 0.1 : 1))}
-                                                >
-                                                    +
-                                                </Button>
                                             </div>
-                                            <span className="text-green-600 font-mono text-sm font-semibold">
-                                                {formatPrice(item.product.price * item.quantity)}
-                                            </span>
-                                        </div>
-                                    </div>
+                                        </CardContent>
+                                    </Card>
                                 ))}
                             </div>
                         )}
-                    </ScrollArea>
 
-                    {/* Cart Footer */}
-                    <div className="p-4 border-t border-slate-200">
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="text-slate-500">Total</span>
-                            <span className="text-2xl font-bold text-slate-800">
-                                {formatPrice(cartTotal)}
-                            </span>
+                        {/* Pagination Controls */}
+                        {!loading && totalProducts > PAGE_SIZE && (
+                            <div className="flex items-center justify-center gap-4 mt-6 pb-4">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setCurrentPage(prev => Math.max(1, prev - 1));
+                                    }}
+                                    disabled={currentPage === 1}
+                                    className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Previous
+                                </Button>
+                                <span className="text-sm text-slate-600">
+                                    Page {currentPage} of {Math.ceil(totalProducts / PAGE_SIZE)}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setCurrentPage(prev => Math.min(Math.ceil(totalProducts / PAGE_SIZE), prev + 1));
+                                    }}
+                                    disabled={currentPage >= Math.ceil(totalProducts / PAGE_SIZE)}
+                                    className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Next
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Sidebar - Cart */}
+                    <aside className="w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col shadow-lg">
+                        <div className="p-4 border-b border-slate-200">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
+                                {cart.length > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={clearCart}
+                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    >
+                                        Clear
+                                    </Button>
+                                )}
+                            </div>
                         </div>
-                        <Button
-                            className="w-full h-14 text-lg bg-linear-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                            onClick={handlePrintBill}
-                            disabled={cart.length === 0 || submitting}
-                        >
-                            {submitting ? 'Processing...' : '🖨️ Print Ticket'}
-                        </Button>
-                    </div>
-                </aside>
+
+                        <ScrollArea className="flex-1 p-4">
+                            {cart.length === 0 ? (
+                                <div className="text-center text-slate-400 py-8">
+                                    Cart is empty
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {cart.map((item) => (
+                                        <div
+                                            key={item.product.id}
+                                            className="bg-slate-50 border border-slate-200 rounded-lg p-3"
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="text-slate-800 text-sm font-medium truncate flex-1">
+                                                    {item.product.name}
+                                                </h4>
+                                                <button
+                                                    onClick={() => removeFromCart(item.product.id)}
+                                                    className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
+                                                        onClick={() => updateCartQuantity(item.product.id, item.quantity - (item.product.unit_type === 'weight' ? 0.1 : 1))}
+                                                    >
+                                                        -
+                                                    </Button>
+                                                    <span className="text-slate-800 w-12 text-center font-medium">
+                                                        {item.quantity}{item.product.unit_type === 'weight' ? (
+                                                            <span className="text-gray-500"> kg</span>
+                                                        ) : item.product.unit_type === 'pcs' ? (
+                                                            <span className="text-gray-500"> pcs</span>
+                                                        ) : (
+                                                            <span className="text-gray-500"> item</span>
+                                                        )}
+                                                    </span>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
+                                                        onClick={() => updateCartQuantity(item.product.id, item.quantity + (item.product.unit_type === 'weight' ? 0.1 : 1))}
+                                                    >
+                                                        +
+                                                    </Button>
+                                                </div>
+                                                <span className="text-green-600 font-mono text-sm font-semibold">
+                                                    {formatPrice(item.product.price * item.quantity)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </ScrollArea>
+
+                        {/* Cart Footer */}
+                        <div className="p-4 border-t border-slate-200">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-slate-500">Total</span>
+                                <span className="text-2xl font-bold text-slate-800">
+                                    {formatPrice(cartTotal)}
+                                </span>
+                            </div>
+                            <Button
+                                className="w-full h-14 text-lg bg-linear-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                                onClick={handlePrintBill}
+                                disabled={cart.length === 0 || submitting}
+                            >
+                                {submitting ? 'Processing...' : '🖨️ Print Ticket'}
+                            </Button>
+                        </div>
+                    </aside>
+                </div>
             </div>
 
             {/* Quantity Dialog */}
@@ -460,30 +500,63 @@ export default function RunnerPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Ticket Success Dialog */}
+            {/* Ticket Success Dialog - Invoice Style */}
             <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-                <DialogContent className="sm:max-w-[350px] bg-white border-slate-200 shadow-xl text-center">
-                    <DialogHeader>
-                        <DialogTitle className="text-2xl text-slate-800">✅ Ticket Created!</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-8">
-                        <div className="text-6xl font-bold text-green-600 mb-4">
-                            {lastTicket?.shortId}
-                        </div>
-                        <Separator className="bg-slate-200 my-4" />
-                        <div className="text-slate-500">Total Amount</div>
-                        <div className="text-3xl font-bold text-slate-800">
-                            {formatPrice(lastTicket?.total || 0)}
+                <DialogContent className="sm:max-w-[400px] bg-white border-slate-200 shadow-xl p-0 overflow-hidden">
+                    {/* Visually hidden title for accessibility */}
+                    <DialogTitle className="sr-only">Order Ticket {lastTicket?.shortId}</DialogTitle>
+                    {/* Invoice Header */}
+                    <div className="bg-linear-to-r from-indigo-600 to-purple-600 text-white p-4 text-center">
+                        <div className="text-xs uppercase tracking-wider opacity-80">Order Ticket</div>
+                        <div className="text-4xl font-bold mt-1">{lastTicket?.shortId}</div>
+                        <div className="text-xs opacity-70 mt-2">
+                            {lastTicket?.createdAt?.toLocaleString('id-ID', {
+                                dateStyle: 'medium',
+                                timeStyle: 'short'
+                            })}
                         </div>
                     </div>
-                    <DialogFooter className="justify-center">
+
+                    {/* Order Items */}
+                    <div className="p-4">
+                        <div className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Order Details</div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {lastTicket?.items.map((item) => (
+                                <div key={item.product.id} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+                                    <div className="flex-1">
+                                        <div className="text-sm font-medium text-slate-800">{item.product.name}</div>
+                                        <div className="text-xs text-slate-500">
+                                            {item.quantity} {item.product.unit_type === 'weight' ? 'kg' : item.product.unit_type === 'pcs' ? 'pcs' : 'item'} × {formatPrice(item.product.price)}
+                                        </div>
+                                    </div>
+                                    <div className="text-sm font-semibold text-slate-800">
+                                        {formatPrice(item.product.price * item.quantity)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Total Section */}
+                    <div className="bg-slate-50 p-4 border-t border-slate-200">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600">Total ({lastTicket?.items.length || 0} items)</span>
+                            <span className="text-2xl font-bold text-green-600">
+                                {formatPrice(lastTicket?.total || 0)}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-4 pt-0">
                         <Button
                             onClick={() => setTicketDialogOpen(false)}
-                            className="bg-linear-to-r from-indigo-500 to-purple-500"
+                            className="w-full bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
                         >
-                            New Order
+                            ✓ Done - New Order
                         </Button>
-                    </DialogFooter>
+                        <p className="text-center text-xs text-slate-400 mt-2">Present this ticket to cashier for payment</p>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
