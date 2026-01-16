@@ -195,9 +195,9 @@ export default function ProductsPage() {
     };
 
     // Check if category requires barcode (Sembako) or image (Visual items)
-    const showBarcode = ['Sembako', 'Minuman'].includes(formData.category);
-    const showImage = ['Daging', 'Canang', 'Sayur', 'Buah', 'Jajan'].includes(formData.category);
-    const showWeightUnit = ['Daging', 'Sayur', 'Buah'].includes(formData.category);
+    const showBarcode = ['Sembako', 'Daging', 'Canang', 'Sayur', 'Buah', 'Jajan', 'Minuman'].includes(formData.category);
+    const showImage = ['Sembako', 'Daging', 'Canang', 'Sayur', 'Buah', 'Jajan'].includes(formData.category);
+    const showWeightUnit = ['Sembako', 'Daging', 'Sayur', 'Buah'].includes(formData.category);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -256,6 +256,19 @@ export default function ProductsPage() {
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
+                                    {/* Barcode - Only for Sembako */}
+                                    {showBarcode && (
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="barcode" className="text-right">Barcode/Code</Label>
+                                            <Input
+                                                id="barcode"
+                                                value={formData.barcode || ''}
+                                                onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
+                                                className="col-span-3 bg-white border-gray-300 text-gray-900"
+                                                placeholder="Enter Code or Scan barcode"
+                                            />
+                                        </div>
+                                    )}
                                     {/* Name */}
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <Label htmlFor="name" className="text-right">Name</Label>
@@ -318,20 +331,6 @@ export default function ProductsPage() {
                                         />
                                     </div>
 
-                                    {/* Barcode - Only for Sembako */}
-                                    {showBarcode && (
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="barcode" className="text-right">Barcode</Label>
-                                            <Input
-                                                id="barcode"
-                                                value={formData.barcode || ''}
-                                                onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
-                                                className="col-span-3 bg-white border-gray-300 text-gray-900"
-                                                placeholder="Scan or enter barcode"
-                                            />
-                                        </div>
-                                    )}
-
                                     {/* Image URL - Only for Visual items */}
                                     {showImage && (
                                         <div className="grid grid-cols-4 items-center gap-4">
@@ -360,6 +359,7 @@ export default function ProductsPage() {
                                                 <SelectContent>
                                                     <SelectItem value="item">Per Item</SelectItem>
                                                     <SelectItem value="weight">Per Kg</SelectItem>
+                                                    <SelectItem value="pcs">Per Pcs</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -398,11 +398,11 @@ export default function ProductsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="border-gray-200 bg-gray-50 hover:bg-gray-100">
+                                <TableHead className="text-gray-700 font-semibold">Code</TableHead>
                                 <TableHead className="text-gray-700 font-semibold">Name</TableHead>
                                 <TableHead className="text-gray-700 font-semibold">Category</TableHead>
                                 <TableHead className="text-gray-700 font-semibold">Price</TableHead>
                                 <TableHead className="text-gray-700 font-semibold">Stock</TableHead>
-                                <TableHead className="text-gray-700 font-semibold">Barcode</TableHead>
                                 <TableHead className="text-gray-700 font-semibold">Status</TableHead>
                                 <TableHead className="text-gray-700 font-semibold text-right">Actions</TableHead>
                             </TableRow>
@@ -423,6 +423,9 @@ export default function ProductsPage() {
                             ) : (
                                 products.map((product) => (
                                     <TableRow key={product.id} className="border-gray-200 hover:bg-gray-50">
+                                        <TableCell className="text-gray-500 font-mono text-sm">
+                                            {product.barcode || '—'}
+                                        </TableCell>
                                         <TableCell className="font-medium text-gray-900">
                                             <div className="flex items-center gap-3">
                                                 {product.image_url && (
@@ -442,11 +445,23 @@ export default function ProductsPage() {
                                         </TableCell>
                                         <TableCell className="text-green-600 font-mono">
                                             {formatPrice(product.price)}
-                                            {product.unit_type === 'weight' && <span className="text-gray-500">/kg</span>}
+                                            {product.unit_type === 'weight' ? (
+                                                <span className="text-gray-500">/kg</span>
+                                            ) : product.unit_type === 'pcs' ? (
+                                                <span className="text-gray-500">/pcs</span>
+                                            ) : (
+                                                <span className="text-gray-500">/item</span>
+                                            )}
                                         </TableCell>
-                                        <TableCell className="text-gray-700">{product.stock}</TableCell>
-                                        <TableCell className="text-gray-500 font-mono text-sm">
-                                            {product.barcode || '—'}
+                                        <TableCell className="text-gray-700">
+                                            {product.stock}
+                                            {product.unit_type === 'weight' ? (
+                                                <span className="text-gray-500"> kg</span>
+                                            ) : product.unit_type === 'pcs' ? (
+                                                <span className="text-gray-500"> pcs</span>
+                                            ) : (
+                                                <span className="text-gray-500"> item</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge

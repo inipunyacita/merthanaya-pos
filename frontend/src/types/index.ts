@@ -7,7 +7,7 @@ export interface Product {
     stock: number;
     barcode: string | null;
     image_url: string | null;
-    unit_type: 'item' | 'weight';
+    unit_type: 'item' | 'weight' | 'pcs';
     is_active: boolean;
     created_at: string;
 }
@@ -19,7 +19,7 @@ export interface ProductCreate {
     stock?: number;
     barcode?: string | null;
     image_url?: string | null;
-    unit_type?: 'item' | 'weight';
+    unit_type?: 'item' | 'weight' | 'pcs';
     is_active?: boolean;
 }
 
@@ -30,7 +30,7 @@ export interface ProductUpdate {
     stock?: number;
     barcode?: string | null;
     image_url?: string | null;
-    unit_type?: 'item' | 'weight';
+    unit_type?: 'item' | 'weight' | 'pcs';
     is_active?: boolean;
 }
 
