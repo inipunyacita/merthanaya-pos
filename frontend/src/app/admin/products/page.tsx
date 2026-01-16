@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -139,7 +140,7 @@ export default function ProductsPage() {
         }
     };
 
-    const handleDelete = async (product: Product) => {
+    const handleDeactivate = async (product: Product) => {
         if (!confirm(`Are you sure you want to deactivate "${product.name}"?`)) return;
         try {
             await productApi.delete(product.id);
@@ -149,8 +150,39 @@ export default function ProductsPage() {
             });
             fetchProducts();
         } catch (error) {
+            console.error('Failed to deactivate product:', error);
+            toast.error('Failed to deactivate product');
+        }
+    };
+
+    const handleReactivate = async (product: Product) => {
+        if (!confirm(`Reactivate "${product.name}"?`)) return;
+        try {
+            await productApi.update(product.id, { is_active: true });
+            toast.success('Product Reactivated', {
+                description: `"${product.name}" is now available for sale`,
+                duration: 3000,
+            });
+            fetchProducts();
+        } catch (error) {
+            console.error('Failed to reactivate product:', error);
+            toast.error('Failed to reactivate product');
+        }
+    };
+
+    const handleDeletePerm = async (product: Product) => {
+        if (!confirm(`Are you sure you want to delete "${product.name}"?`)) return;
+        try {
+            await productApi.delete(product.id, true);
+            toast.success('Product Deleted', {
+                description: `"${product.name}" has been deleted`,
+                duration: 3000,
+            });
+            fetchProducts();
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } };
             console.error('Failed to delete product:', error);
-            toast.error('Failed to delete product');
+            toast.error(err.response?.data?.detail || 'Failed to delete product');
         }
     };
 
@@ -168,20 +200,20 @@ export default function ProductsPage() {
     const showWeightUnit = ['Daging', 'Sayur', 'Buah'].includes(formData.category);
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="min-h-screen bg-gray-50">
             <Toaster richColors position="top-right" closeButton />
 
             {/* Header */}
-            <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
+            <header className="border-b border-gray-200 bg-white shadow-sm">
                 <div className="container mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-white">ADMIN - Merthanaya</h1>
-                            <p className="text-sm text-gray-400">Store and Inventory Management Tools</p>
+                            <h1 className="text-2xl font-bold text-gray-900">ADMIN - Merthanaya</h1>
+                            <p className="text-sm text-gray-500">Store and Inventory Management Tools</p>
                         </div>
                         <nav className="flex gap-4">
-                            <a href="/runner" className="px-4 py-2 text-gray-300 hover:text-white transition">Runner</a>
-                            <a href="/cashier" className="px-4 py-2 text-gray-300 hover:text-white transition">Cashier</a>
+                            <a href="/runner" className="px-4 py-2 text-gray-600 hover:text-gray-900 transition">Runner</a>
+                            <a href="/cashier" className="px-4 py-2 text-gray-600 hover:text-gray-900 transition">Cashier</a>
                         </nav>
                     </div>
                 </div>
@@ -195,11 +227,11 @@ export default function ProductsPage() {
                             placeholder="Search products by name or barcode..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                            className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
                         />
                     </div>
                     <Select value={filterCategory} onValueChange={setFilterCategory}>
-                        <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
+                        <SelectTrigger className="w-[180px] bg-white border-gray-300 text-gray-900">
                             <SelectValue placeholder="All Categories" />
                         </SelectTrigger>
                         <SelectContent>
@@ -211,15 +243,15 @@ export default function ProductsPage() {
                     </Select>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button onClick={() => openDialog()} className="bg-linear-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                            <Button onClick={() => openDialog()} className="bg-purple-600 hover:bg-purple-700 text-white">
                                 + Add Product
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px] bg-slate-900 border-white/20 text-white">
+                        <DialogContent className="sm:max-w-[500px] bg-white border-gray-200 text-gray-900">
                             <form onSubmit={handleSubmit}>
                                 <DialogHeader>
-                                    <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
-                                    <DialogDescription className="text-gray-400">
+                                    <DialogTitle className="text-gray-900">{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+                                    <DialogDescription className="text-gray-500">
                                         {showBarcode ? 'Barcoded product (Sembako)' : 'Visual product with image'}
                                     </DialogDescription>
                                 </DialogHeader>
@@ -231,7 +263,7 @@ export default function ProductsPage() {
                                             id="name"
                                             value={formData.name}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="col-span-3 bg-white/10 border-white/20"
+                                            className="col-span-3 bg-white border-gray-300 text-gray-900"
                                             required
                                         />
                                     </div>
@@ -243,7 +275,7 @@ export default function ProductsPage() {
                                             value={formData.category}
                                             onValueChange={(value) => setFormData({ ...formData, category: value })}
                                         >
-                                            <SelectTrigger className="col-span-3 bg-white/10 border-white/20">
+                                            <SelectTrigger className="col-span-3 bg-white border-gray-300 text-gray-900">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -266,7 +298,7 @@ export default function ProductsPage() {
                                             onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) || 0 })}
                                             onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
                                             placeholder="0"
-                                            className="col-span-3 bg-white/10 border-white/20"
+                                            className="col-span-3 bg-white border-gray-300 text-gray-900"
                                             required
                                         />
                                     </div>
@@ -282,7 +314,7 @@ export default function ProductsPage() {
                                             onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) || 0 })}
                                             onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
                                             placeholder="0"
-                                            className="col-span-3 bg-white/10 border-white/20"
+                                            className="col-span-3 bg-white border-gray-300 text-gray-900"
                                         />
                                     </div>
 
@@ -294,7 +326,7 @@ export default function ProductsPage() {
                                                 id="barcode"
                                                 value={formData.barcode || ''}
                                                 onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
-                                                className="col-span-3 bg-white/10 border-white/20"
+                                                className="col-span-3 bg-white border-gray-300 text-gray-900"
                                                 placeholder="Scan or enter barcode"
                                             />
                                         </div>
@@ -308,7 +340,7 @@ export default function ProductsPage() {
                                                 id="image_url"
                                                 value={formData.image_url || ''}
                                                 onChange={(e) => setFormData({ ...formData, image_url: e.target.value || null })}
-                                                className="col-span-3 bg-white/10 border-white/20"
+                                                className="col-span-3 bg-white border-gray-300 text-gray-900"
                                                 placeholder="https://..."
                                             />
                                         </div>
@@ -322,7 +354,7 @@ export default function ProductsPage() {
                                                 value={formData.unit_type}
                                                 onValueChange={(value: 'item' | 'weight') => setFormData({ ...formData, unit_type: value })}
                                             >
-                                                <SelectTrigger className="col-span-3 bg-white/10 border-white/20">
+                                                <SelectTrigger className="col-span-3 bg-white border-gray-300 text-gray-900">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -338,21 +370,21 @@ export default function ProductsPage() {
                                         <Label htmlFor="is_active" className="text-right">Active</Label>
                                         <div className="col-span-3 flex items-center">
                                             <Switch
-                                                id="is_active" className="bg-white/10 border-white/200"
+                                                id="is_active"
                                                 checked={formData.is_active}
                                                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                                             />
-                                            <span className="ml-2 text-sm text-gray-200">
+                                            <span className="ml-2 text-sm text-gray-600">
                                                 {formData.is_active ? 'Available for sale' : 'Hidden from runners'}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-400 text-black hover:text-white hover:bg-white/10">
+                                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-300 text-gray-700 hover:bg-gray-100">
                                         Cancel
                                     </Button>
-                                    <Button type="submit" className="bg-linear-to-r from-purple-500 to-pink-500">
+                                    <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">
                                         {editingProduct ? 'Save Changes' : 'Create Product'}
                                     </Button>
                                 </DialogFooter>
@@ -362,36 +394,36 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Products Table */}
-                <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur-xl overflow-hidden">
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
                     <Table>
                         <TableHeader>
-                            <TableRow className="border-white/10 hover:bg-white/5">
-                                <TableHead className="text-gray-300">Name</TableHead>
-                                <TableHead className="text-gray-300">Category</TableHead>
-                                <TableHead className="text-gray-300">Price</TableHead>
-                                <TableHead className="text-gray-300">Stock</TableHead>
-                                <TableHead className="text-gray-300">Barcode</TableHead>
-                                <TableHead className="text-gray-300">Status</TableHead>
-                                <TableHead className="text-gray-300 text-right">Actions</TableHead>
+                            <TableRow className="border-gray-200 bg-gray-50 hover:bg-gray-100">
+                                <TableHead className="text-gray-700 font-semibold">Name</TableHead>
+                                <TableHead className="text-gray-700 font-semibold">Category</TableHead>
+                                <TableHead className="text-gray-700 font-semibold">Price</TableHead>
+                                <TableHead className="text-gray-700 font-semibold">Stock</TableHead>
+                                <TableHead className="text-gray-700 font-semibold">Barcode</TableHead>
+                                <TableHead className="text-gray-700 font-semibold">Status</TableHead>
+                                <TableHead className="text-gray-700 font-semibold text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-gray-400">
+                                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                                         Loading products...
                                     </TableCell>
                                 </TableRow>
                             ) : products.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-gray-400">
+                                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                                         No products found. Add your first product!
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 products.map((product) => (
-                                    <TableRow key={product.id} className="border-white/10 hover:bg-white/5">
-                                        <TableCell className="font-medium text-white">
+                                    <TableRow key={product.id} className="border-gray-200 hover:bg-gray-50">
+                                        <TableCell className="font-medium text-gray-900">
                                             <div className="flex items-center gap-3">
                                                 {product.image_url && (
                                                     <img
@@ -404,22 +436,22 @@ export default function ProductsPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className="border-purple-500/50 text-purple-300">
+                                            <Badge variant="outline" className="border-purple-500 text-purple-600">
                                                 {product.category}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-green-400 font-mono">
+                                        <TableCell className="text-green-600 font-mono">
                                             {formatPrice(product.price)}
                                             {product.unit_type === 'weight' && <span className="text-gray-500">/kg</span>}
                                         </TableCell>
-                                        <TableCell className="text-gray-300">{product.stock}</TableCell>
-                                        <TableCell className="text-gray-400 font-mono text-sm">
+                                        <TableCell className="text-gray-700">{product.stock}</TableCell>
+                                        <TableCell className="text-gray-500 font-mono text-sm">
                                             {product.barcode || '—'}
                                         </TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant={product.is_active ? 'default' : 'secondary'}
-                                                className={product.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}
+                                                className={product.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}
                                             >
                                                 {product.is_active ? 'Active' : 'Inactive'}
                                             </Badge>
@@ -429,17 +461,40 @@ export default function ProductsPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => openDialog(product)}
-                                                className="text-gray-300 hover:text-white hover:bg-white/10"
+                                                className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                                                title="Edit"
                                             >
-                                                Edit
+                                                <Pencil className="h-4 w-4" />
                                             </Button>
+                                            {product.is_active ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeactivate(product)}
+                                                    className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10"
+                                                    title="Deactivate"
+                                                >
+                                                    <PowerOff className="h-4 w-4" />
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleReactivate(product)}
+                                                    className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                                                    title="Activate"
+                                                >
+                                                    <Power className="h-4 w-4" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleDelete(product)}
+                                                onClick={() => handleDeletePerm(product)}
                                                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                title="Delete"
                                             >
-                                                Delete
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -450,7 +505,7 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Summary */}
-                <div className="mt-4 text-sm text-gray-400">
+                <div className="mt-4 text-sm text-gray-500">
                     Showing {products.length} product{products.length !== 1 ? 's' : ''}
                 </div>
             </main>

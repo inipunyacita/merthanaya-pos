@@ -159,6 +159,13 @@ async def delete_product(product_id: UUID, hard_delete: bool = Query(False)):
             raise HTTPException(status_code=404, detail="Product not found")
         
         if hard_delete:
+            # Check if product is referenced in any orders
+            order_items = db.table("order_items").select("id").eq("product_id", str(product_id)).limit(1).execute()
+            if order_items.data:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Cannot delete product - it is referenced in existing orders. Use deactivate instead."
+                )
             db.table("products").delete().eq("id", str(product_id)).execute()
             return {"message": "Product permanently deleted"}
         else:
