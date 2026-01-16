@@ -53,6 +53,7 @@ export interface Order {
     id: string;
     daily_id: number;
     short_id: string;
+    invoice_id: string;
     runner_id: string | null;
     total_amount: number;
     status: 'PENDING' | 'PAID' | 'CANCELLED';
@@ -65,6 +66,7 @@ export interface OrderSummary {
     id: string;
     daily_id: number;
     short_id: string;
+    invoice_id: string;
     total_amount: number;
     status: 'PENDING' | 'PAID' | 'CANCELLED';
     item_count: number;

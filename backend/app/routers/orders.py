@@ -40,6 +40,12 @@ def format_daily_id(number: int) -> str:
     return f"#{number:03d}"
 
 
+def generate_invoice_id(daily_id: int) -> str:
+    """Generate invoice ID in format INV-YYYYMMDD-XXX."""
+    today = date.today().strftime("%Y%m%d")
+    return f"INV-{today}-{daily_id:03d}"
+
+
 @router.post("/", response_model=OrderResponse, status_code=201)
 async def create_order(order: OrderCreate):
     """
@@ -75,9 +81,10 @@ async def create_order(order: OrderCreate):
                     detail=f"Product '{product['name']}' is not available"
                 )
         
-        # Get next daily ID
+        # Get next daily ID and generate invoice ID
         daily_id = get_or_create_daily_counter(db)
         short_id = format_daily_id(daily_id)
+        invoice_id = generate_invoice_id(daily_id)
         
         # Calculate items with subtotals
         order_items_data = []
@@ -100,6 +107,7 @@ async def create_order(order: OrderCreate):
         # Create order
         order_data = {
             "daily_id": daily_id,
+            "invoice_id": invoice_id,
             "runner_id": str(order.runner_id) if order.runner_id else None,
             "total_amount": float(total_amount),
             "status": "PENDING"
@@ -131,6 +139,7 @@ async def create_order(order: OrderCreate):
             id=order_record["id"],
             daily_id=daily_id,
             short_id=short_id,
+            invoice_id=invoice_id,
             runner_id=order.runner_id,
             total_amount=Decimal(str(order_record["total_amount"])),
             status=order_record["status"],
@@ -172,6 +181,7 @@ async def get_pending_orders():
                 id=order_data["id"],
                 daily_id=order_data["daily_id"],
                 short_id=format_daily_id(order_data["daily_id"]),
+                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
                 total_amount=Decimal(str(order_data["total_amount"])),
                 status=order_data["status"],
                 item_count=item_count,
@@ -224,6 +234,7 @@ async def get_paid_orders(page: int = 1, page_size: int = 6):
                 id=order_data["id"],
                 daily_id=order_data["daily_id"],
                 short_id=format_daily_id(order_data["daily_id"]),
+                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
                 total_amount=Decimal(str(order_data["total_amount"])),
                 status=order_data["status"],
                 item_count=item_count,
@@ -263,6 +274,7 @@ async def get_order(order_id: UUID):
             id=order_data["id"],
             daily_id=order_data["daily_id"],
             short_id=format_daily_id(order_data["daily_id"]),
+            invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
             runner_id=order_data.get("runner_id"),
             total_amount=Decimal(str(order_data["total_amount"])),
             status=order_data["status"],
@@ -308,6 +320,7 @@ async def mark_order_paid(order_id: UUID):
         return PaymentResponse(
             id=order_result.data["id"],
             short_id=format_daily_id(order_result.data["daily_id"]),
+            invoice_id=order_result.data.get("invoice_id") or generate_invoice_id(order_result.data["daily_id"]),
             status="PAID",
             paid_at=now
         )

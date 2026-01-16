@@ -54,6 +54,7 @@ export default function RunnerPage() {
     const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
     const [lastTicket, setLastTicket] = useState<{
         shortId: string;
+        invoiceId: string;
         total: number;
         items: CartItem[];
         createdAt: Date;
@@ -205,6 +206,7 @@ export default function RunnerPage() {
             // Save cart items before clearing for the invoice display
             setLastTicket({
                 shortId: response.short_id,
+                invoiceId: response.invoice_id,
                 total: response.total_amount,
                 items: [...cart],
                 createdAt: new Date(),
@@ -546,6 +548,7 @@ export default function RunnerPage() {
                     <div className="bg-linear-to-r from-indigo-600 to-purple-600 text-white p-4 text-center">
                         <div className="text-xs uppercase tracking-wider opacity-80">Order Ticket</div>
                         <div className="text-4xl font-bold mt-1">{lastTicket?.shortId}</div>
+                        <div className="text-sm font-mono mt-1 opacity-90">{lastTicket?.invoiceId}</div>
                         <div className="text-xs opacity-70 mt-2">
                             {lastTicket?.createdAt?.toLocaleString('id-ID', {
                                 dateStyle: 'medium',

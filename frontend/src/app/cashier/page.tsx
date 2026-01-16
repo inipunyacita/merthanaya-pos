@@ -102,6 +102,7 @@ export default function CashierPage() {
                             id: newOrder.id,
                             daily_id: newOrder.daily_id,
                             short_id: `#${newOrder.daily_id.toString().padStart(3, '0')}`,
+                            invoice_id: `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${newOrder.daily_id.toString().padStart(3, '0')}`,
                             total_amount: newOrder.total_amount,
                             status: 'PENDING',
                             item_count: 0,
@@ -339,9 +340,12 @@ export default function CashierPage() {
                                         >
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
-                                                    <CardTitle className="text-4xl font-bold text-emerald-600">
-                                                        {order.short_id}
-                                                    </CardTitle>
+                                                    <div>
+                                                        <CardTitle className="text-4xl font-bold text-emerald-600">
+                                                            {order.short_id}
+                                                        </CardTitle>
+                                                        <div className="text-xs font-mono text-slate-500 mt-1">{order.invoice_id}</div>
+                                                    </div>
                                                     <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300">
                                                         PENDING
                                                     </Badge>
@@ -412,9 +416,12 @@ export default function CashierPage() {
                                         >
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
-                                                    <CardTitle className="text-4xl font-bold text-green-600">
-                                                        {order.short_id}
-                                                    </CardTitle>
+                                                    <div>
+                                                        <CardTitle className="text-4xl font-bold text-green-600">
+                                                            {order.short_id}
+                                                        </CardTitle>
+                                                        <div className="text-xs font-mono text-slate-500 mt-1">{order.invoice_id}</div>
+                                                    </div>
                                                     <Badge className="bg-green-100 text-green-700 border-green-300">
                                                         PAID
                                                     </Badge>
@@ -550,6 +557,7 @@ export default function CashierPage() {
                     <div className="bg-linear-to-r from-emerald-600 to-green-600 text-white p-4 text-center print:bg-white print:text-black">
                         <div className="text-xs uppercase tracking-wider opacity-80 print:opacity-100">Invoice</div>
                         <div className="text-4xl font-bold mt-1">{selectedOrder?.short_id}</div>
+                        <div className="text-sm font-mono mt-1 opacity-90">{selectedOrder?.invoice_id}</div>
                         <div className="text-xs opacity-70 mt-2 print:opacity-100">
                             {selectedOrder && formatDateTime(selectedOrder.created_at)}
                         </div>

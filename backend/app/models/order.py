@@ -28,6 +28,7 @@ class OrderResponse(BaseModel):
     id: UUID
     daily_id: int
     short_id: str = Field(..., description="Formatted daily ID like '#001'")
+    invoice_id: str = Field(..., description="Unique invoice ID like 'INV-20260116-001'")
     runner_id: Optional[UUID]
     total_amount: Decimal
     status: str
@@ -43,6 +44,7 @@ class OrderSummary(BaseModel):
     id: UUID
     daily_id: int
     short_id: str
+    invoice_id: str
     total_amount: Decimal
     status: str
     item_count: int
@@ -57,6 +59,7 @@ class PaymentResponse(BaseModel):
     """Schema for payment confirmation."""
     id: UUID
     short_id: str
+    invoice_id: str
     status: str
     paid_at: datetime
 
