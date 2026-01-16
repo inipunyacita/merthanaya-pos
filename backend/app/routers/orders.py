@@ -362,3 +362,93 @@ async def cancel_order(order_id: UUID):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history/all", response_model=PaginatedOrdersResponse)
+async def get_transaction_history(
+    page: int = 1, 
+    page_size: int = 20,
+    status: str = None,
+    date_from: date = None,
+    date_to: date = None,
+    search: str = None
+):
+    """
+    Get comprehensive transaction history with filters.
+    - status: PAID, CANCELLED, or PENDING
+    - date_from/date_to: Date range filter
+    - search: Search by invoice_id
+    """
+    try:
+        db = get_db()
+        
+        # Build query
+        query = db.table("orders").select("*", count="exact")
+        
+        # Apply filters
+        if status:
+            query = query.eq("status", status.upper())
+        
+        if date_from:
+            query = query.gte("created_at", f"{date_from}T00:00:00")
+        
+        if date_to:
+            query = query.lte("created_at", f"{date_to}T23:59:59")
+        
+        if search:
+            query = query.ilike("invoice_id", f"%{search}%")
+        
+        # Get total count
+        count_result = query.execute()
+        total = count_result.count if count_result.count else 0
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+        
+        # Calculate offset and get paginated results
+        offset = (page - 1) * page_size
+        
+        # Rebuild query with pagination
+        query = db.table("orders").select("*")
+        
+        if status:
+            query = query.eq("status", status.upper())
+        if date_from:
+            query = query.gte("created_at", f"{date_from}T00:00:00")
+        if date_to:
+            query = query.lte("created_at", f"{date_to}T23:59:59")
+        if search:
+            query = query.ilike("invoice_id", f"%{search}%")
+        
+        result = query.order("created_at", desc=True).range(offset, offset + page_size - 1).execute()
+        
+        orders = []
+        for order_data in result.data or []:
+            # Get item count
+            items_result = db.table("order_items")\
+                .select("id", count="exact")\
+                .eq("order_id", order_data["id"])\
+                .execute()
+            
+            item_count = items_result.count if items_result.count else 0
+            
+            orders.append(OrderSummary(
+                id=order_data["id"],
+                daily_id=order_data["daily_id"],
+                short_id=format_daily_id(order_data["daily_id"]),
+                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
+                total_amount=Decimal(str(order_data["total_amount"])),
+                status=order_data["status"],
+                item_count=item_count,
+                created_at=order_data["created_at"]
+            ))
+        
+        return PaginatedOrdersResponse(
+            orders=orders,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

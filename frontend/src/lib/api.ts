@@ -8,6 +8,14 @@ import {
     OrderCreate,
     PendingOrdersResponse,
     PaginatedOrdersResponse,
+    SalesSummaryResponse,
+    TopProductsResponse,
+    CategorySalesResponse,
+    SalesTrendResponse,
+    HourlyDistributionResponse,
+    LowStockResponse,
+    StockAdjustment,
+    StockAdjustmentResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -83,6 +91,61 @@ export const orderApi = {
         const response = await api.get<PaginatedOrdersResponse>('/orders/paid', {
             params: { page, page_size: pageSize }
         });
+        return response.data;
+    },
+
+    getHistory: async (params?: {
+        page?: number;
+        page_size?: number;
+        status?: string;
+        date_from?: string;
+        date_to?: string;
+        search?: string
+    }) => {
+        const response = await api.get<PaginatedOrdersResponse>('/orders/history/all', { params });
+        return response.data;
+    },
+};
+
+// Analytics API
+export const analyticsApi = {
+    getSummary: async (params?: { days?: number; date_from?: string; date_to?: string }) => {
+        const response = await api.get<SalesSummaryResponse>('/analytics/summary', { params });
+        return response.data;
+    },
+
+    getTopProducts: async (params?: { days?: number; limit?: number }) => {
+        const response = await api.get<TopProductsResponse>('/analytics/top-products', { params });
+        return response.data;
+    },
+
+    getSalesByCategory: async (params?: { days?: number }) => {
+        const response = await api.get<CategorySalesResponse>('/analytics/sales-by-category', { params });
+        return response.data;
+    },
+
+    getSalesTrend: async (params?: { days?: number }) => {
+        const response = await api.get<SalesTrendResponse>('/analytics/sales-trend', { params });
+        return response.data;
+    },
+
+    getHourlyDistribution: async (params?: { days?: number }) => {
+        const response = await api.get<HourlyDistributionResponse>('/analytics/hourly-distribution', { params });
+        return response.data;
+    },
+};
+
+// Inventory API
+export const inventoryApi = {
+    getLowStock: async (threshold?: number) => {
+        const response = await api.get<LowStockResponse>('/inventory/low-stock', {
+            params: threshold ? { threshold } : undefined
+        });
+        return response.data;
+    },
+
+    adjustStock: async (adjustment: StockAdjustment) => {
+        const response = await api.post<StockAdjustmentResponse>('/inventory/adjust', adjustment);
         return response.data;
     },
 };

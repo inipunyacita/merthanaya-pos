@@ -130,13 +130,131 @@ npm run dev
 - [x] **Form UX**: Price/stock fields clear default 0 on focus
 - [x] **Tailwind CSS v4**: Updated to use new data attribute and CSS variable syntax
 
-### Upcoming (Sprint 2-4)
-- [ ] Barcode scanner integration (html5-qrcode)
-- [ ] Bluetooth thermal printer support
-- [ ] User authentication (Runner identification)
-- [ ] Sales analytics & reporting
+### Sprint 1.75 - Runner & Cashier Enhancements ✅
+- [x] **Invoice ID System**: Unique invoice ID generated after order submission
+- [x] **Barcode Scanner**: html5-qrcode integration for product lookup
+- [x] **Cashier Sidebar**: SPA navigation with Pending/Success Orders menus
+- [x] **Pending Orders Pagination**: 6 orders per page with navigation
+- [x] **Success Order History**: View and print completed orders
+- [x] **Invoice Printing**: Print receipts for completed transactions
+
+---
+
+## 🚀 Upcoming Sprint Roadmap
+
+### Sprint 2 - Mobile & Hardware Integration
+
+**Goal**: Enable portable hardware support and optimize for mobile devices.
+
+#### Features & Implementation Steps:
+
+**1. Bluetooth Thermal Printer Support** 🖨️
+- [ ] Research Web Bluetooth API compatibility
+- [ ] Create printer connection manager component
+- [ ] Implement ESC/POS command protocol for receipt formatting
+- [ ] Design receipt template (header, items, total, footer)
+- [ ] Add "Print Receipt" button to cashier success orders
+- [ ] Test with common thermal printers (Epson TM-series, etc.)
+
+**2. Mobile-Responsive Runner Interface** 📱
+- [ ] Audit current Runner page for mobile breakpoints
+- [ ] Implement touch-optimized product grid (larger tap targets)
+- [ ] Add swipe gestures for cart management
+- [ ] Optimize keyboard input for tablet devices
+- [ ] Test on various tablet sizes (iPad, Android tablets)
+
+**3. Offline Mode (PWA)** 📴
+- [ ] Configure Next.js PWA with service worker
+- [ ] Implement IndexedDB for local order queue
+- [ ] Create sync mechanism when connection restored
+- [ ] Add offline indicator UI
+- [ ] Cache product catalog for offline access
+
+**4. Camera-Based Product Lookup** 📷
+- [ ] Extend html5-qrcode for continuous scanning mode
+- [ ] Add product image matching (optional ML feature)
+- [ ] Quick-add buttons for frequently sold items
+
+---
+
+### Sprint 3 - Authentication & Security
+
+**Goal**: Implement user authentication and role-based access control.
+
+#### Features & Implementation Steps:
+
+**1. User Authentication System** 🔐
+- [ ] Set up Supabase Auth with email/password
+- [ ] Create login page with form validation
+- [ ] Implement JWT token handling
+- [ ] Add protected route middleware
+- [ ] Create user profile storage in database
+
+**2. Runner Identification** 👤
+- [ ] Add `runner_id` field to orders table
+- [ ] Display runner name on order tickets
+- [ ] Create runner assignment at login
+- [ ] Track runner performance metrics
+
+**3. Role-Based Access Control** 🛡️
+- [ ] Define roles: Admin, Cashier, Runner
+- [ ] Create `user_roles` table with permissions
+- [ ] Implement role-checking middleware
+- [ ] Restrict Admin panel to admin role only
+- [ ] Restrict Cashier functions to cashier/admin roles
+
+**4. Session Management** ⏱️
+- [ ] Implement session timeout (configurable)
+- [ ] Add "Stay logged in" option
+- [ ] Create logout functionality
+- [ ] Track active sessions per user
+- [ ] Implement device management (optional)
+
+---
+
+### Sprint 4 - Analytics & Reporting
+
+**Goal**: Provide business insights through analytics dashboards and reports.
+
+#### Features & Implementation Steps:
+
+**1. Daily Sales Summary** 📊
+- [ ] Create `/api/analytics/daily` endpoint
+- [ ] Calculate daily revenue, order count, average order value
+- [ ] Identify top-selling products
+- [ ] Display summary cards on admin dashboard
+- [ ] Add date picker for historical data
+
+**2. Sales Analytics Dashboard** �
+- [ ] Integrate charting library (Recharts or Chart.js)
+- [ ] Create revenue trend line chart (7/30/90 days)
+- [ ] Build product category pie chart
+- [ ] Add order volume bar chart by hour
+- [ ] Implement comparison views (this week vs last week)
+
+**3. Inventory Management** 📦
+- [ ] Add stock tracking on order completion
+- [ ] Create low-stock alert system (configurable threshold)
+- [ ] Build inventory report page
+- [ ] Add stock adjustment functionality
+- [ ] Implement stock history log
+
+**4. Export Reports** 📄
+- [ ] Generate CSV export for transactions
+- [ ] Create PDF receipts for accounting
+- [ ] Build end-of-day summary report
+- [ ] Add scheduled report generation (optional)
+- [ ] Implement email report delivery (optional)
+
+**5. Transaction History & Audit Trail** 🔍
+- [ ] Create comprehensive transaction log
+- [ ] Add search and filter functionality
+- [ ] Implement date range queries
+- [ ] Track order modifications and cancellations
+- [ ] Store payment method details
+
+---
 
 ## 📄 License
 
 MIT License
-# merthanaya-pos

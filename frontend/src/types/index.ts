@@ -113,3 +113,99 @@ export const PRODUCT_CATEGORIES = [
 ] as const;
 
 export type ProductCategory = typeof PRODUCT_CATEGORIES[number];
+
+// Analytics Types
+export interface SalesSummary {
+    total_revenue: number;
+    total_orders: number;
+    average_order_value: number;
+    total_items_sold: number;
+    date_from: string;
+    date_to: string;
+}
+
+export interface SalesSummaryResponse {
+    summary: SalesSummary;
+}
+
+export interface TopProduct {
+    product_id: string;
+    product_name: string;
+    category: string;
+    units_sold: number;
+    revenue: number;
+}
+
+export interface TopProductsResponse {
+    products: TopProduct[];
+    date_from: string;
+    date_to: string;
+}
+
+export interface CategorySales {
+    category: string;
+    revenue: number;
+    order_count: number;
+    percentage: number;
+}
+
+export interface CategorySalesResponse {
+    categories: CategorySales[];
+    date_from: string;
+    date_to: string;
+}
+
+export interface DailySales {
+    date: string;
+    revenue: number;
+    order_count: number;
+}
+
+export interface SalesTrendResponse {
+    data: DailySales[];
+    date_from: string;
+    date_to: string;
+}
+
+export interface HourlyDistribution {
+    hour: number;
+    order_count: number;
+    revenue: number;
+}
+
+export interface HourlyDistributionResponse {
+    data: HourlyDistribution[];
+    date_from: string;
+    date_to: string;
+}
+
+// Inventory Types
+export interface LowStockProduct {
+    id: string;
+    name: string;
+    category: string;
+    stock: number;
+    unit_type: string;
+    threshold: number;
+}
+
+export interface LowStockResponse {
+    products: LowStockProduct[];
+    threshold: number;
+}
+
+export interface StockAdjustment {
+    product_id: string;
+    adjustment: number;
+    reason?: string;
+}
+
+export interface StockAdjustmentResponse {
+    success: boolean;
+    product_id: string;
+    product_name: string;
+    previous_stock: number;
+    new_stock: number;
+    adjustment: number;
+}
+
