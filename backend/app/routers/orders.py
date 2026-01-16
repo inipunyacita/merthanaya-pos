@@ -10,6 +10,7 @@ from app.models.order import (
     OrderItemResponse,
     OrderSummary,
     PendingOrdersResponse,
+    PaginatedOrdersResponse,
     PaymentResponse
 )
 
@@ -183,6 +184,63 @@ async def get_pending_orders():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/paid", response_model=PaginatedOrdersResponse)
+async def get_paid_orders(page: int = 1, page_size: int = 6):
+    """Get all paid orders with pagination for Cashier success history."""
+    try:
+        db = get_db()
+        
+        # Get total count first
+        count_result = db.table("orders")\
+            .select("id", count="exact")\
+            .eq("status", "PAID")\
+            .execute()
+        
+        total = count_result.count if count_result.count else 0
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+        
+        # Calculate offset
+        offset = (page - 1) * page_size
+        
+        # Get paid orders ordered by updated_at (most recent first)
+        result = db.table("orders")\
+            .select("*")\
+            .eq("status", "PAID")\
+            .order("updated_at", desc=True)\
+            .range(offset, offset + page_size - 1)\
+            .execute()
+        
+        orders = []
+        for order_data in result.data:
+            # Get item count for each order
+            items_result = db.table("order_items")\
+                .select("id", count="exact")\
+                .eq("order_id", order_data["id"])\
+                .execute()
+            
+            item_count = items_result.count if items_result.count else 0
+            
+            orders.append(OrderSummary(
+                id=order_data["id"],
+                daily_id=order_data["daily_id"],
+                short_id=format_daily_id(order_data["daily_id"]),
+                total_amount=Decimal(str(order_data["total_amount"])),
+                status=order_data["status"],
+                item_count=item_count,
+                created_at=order_data["created_at"]
+            ))
+        
+        return PaginatedOrdersResponse(
+            orders=orders,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(order_id: UUID):
     """Get a single order with all items."""
@@ -219,7 +277,7 @@ async def get_order(order_id: UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/{order_id}/pay", response_model=PaymentResponse)
+@router.post("/{order_id}/pay", response_model=PaymentResponse)
 async def mark_order_paid(order_id: UUID):
     """Mark an order as paid (Cashier action)."""
     try:
@@ -260,7 +318,7 @@ async def mark_order_paid(order_id: UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/{order_id}/cancel")
+@router.post("/{order_id}/cancel")
 async def cancel_order(order_id: UUID):
     """Cancel a pending order."""
     try:

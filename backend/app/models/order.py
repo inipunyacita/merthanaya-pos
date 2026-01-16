@@ -59,3 +59,11 @@ class PaymentResponse(BaseModel):
     short_id: str
     status: str
     paid_at: datetime
+
+class PaginatedOrdersResponse(BaseModel):
+    """Schema for paginated orders list."""
+    orders: list[OrderSummary]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

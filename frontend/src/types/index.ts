@@ -84,6 +84,14 @@ export interface PendingOrdersResponse {
     total: number;
 }
 
+export interface PaginatedOrdersResponse {
+    orders: OrderSummary[];
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+}
+
 // Cart Types (for Runner)
 export interface CartItem {
     product: Product;

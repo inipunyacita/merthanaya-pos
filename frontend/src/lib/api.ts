@@ -7,6 +7,7 @@ import {
     Order,
     OrderCreate,
     PendingOrdersResponse,
+    PaginatedOrdersResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -69,12 +70,19 @@ export const orderApi = {
     },
 
     pay: async (id: string) => {
-        const response = await api.patch(`/orders/${id}/pay`);
+        const response = await api.post(`/orders/${id}/pay`);
         return response.data;
     },
 
     cancel: async (id: string) => {
-        const response = await api.patch(`/orders/${id}/cancel`);
+        const response = await api.post(`/orders/${id}/cancel`);
+        return response.data;
+    },
+
+    getPaid: async (page: number = 1, pageSize: number = 6) => {
+        const response = await api.get<PaginatedOrdersResponse>('/orders/paid', {
+            params: { page, page_size: pageSize }
+        });
         return response.data;
     },
 };

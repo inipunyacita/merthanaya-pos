@@ -18,7 +18,7 @@ app.add_middleware(
         "http://localhost:3001",      # Alternative port
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

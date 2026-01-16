@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, ScanLine } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ScanLine, Printer } from 'lucide-react';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -494,7 +494,7 @@ export default function RunnerPage() {
                                 onClick={handlePrintBill}
                                 disabled={cart.length === 0 || submitting}
                             >
-                                {submitting ? 'Processing...' : '🖨️ Print Ticket'}
+                                {submitting ? 'Processing...' : 'Submit'}
                             </Button>
                         </div>
                     </aside>
@@ -585,14 +585,22 @@ export default function RunnerPage() {
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 pt-0">
+                    <div className="p-4 pt-0 space-y-2">
+                        <Button
+                            onClick={() => window.print()}
+                            variant="outline"
+                            className="w-full border-slate-300 text-slate-700 hover:bg-slate-100"
+                        >
+                            <Printer className="h-4 w-4 mr-2" />
+                            Print Ticket
+                        </Button>
                         <Button
                             onClick={() => setTicketDialogOpen(false)}
                             className="w-full bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
                         >
                             ✓ Done - New Order
                         </Button>
-                        <p className="text-center text-xs text-slate-400 mt-2">Present this ticket to cashier for payment</p>
+                        <p className="text-center text-xs text-slate-400">Present this ticket to cashier for payment</p>
                     </div>
                 </DialogContent>
             </Dialog>
