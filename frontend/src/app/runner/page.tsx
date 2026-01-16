@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ScanLine } from 'lucide-react';
+import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,6 +46,9 @@ export default function RunnerPage() {
     const [quantityDialogOpen, setQuantityDialogOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [quantity, setQuantity] = useState<string>('1');
+
+    // Scanner dialog state
+    const [scannerDialogOpen, setScannerDialogOpen] = useState(false);
 
     // Ticket dialog state
     const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
@@ -151,6 +155,24 @@ export default function RunnerPage() {
         }
     };
 
+    const handleBarcodeScan = async (barcode: string) => {
+        setScannerDialogOpen(false);
+        try {
+            const product = await productApi.getByBarcode(barcode);
+            if (product) {
+                handleProductClick(product);
+                toast.success('Product Found', {
+                    description: `Found "${product.name}"`,
+                    duration: 2000,
+                });
+            }
+        } catch {
+            toast.error('Product Not Found', {
+                description: `No product with code "${barcode}"`,
+            });
+        }
+    };
+
     const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && searchTerm.length > 5) {
             // Assume it's a barcode if longer than 5 chars and Enter pressed
@@ -219,7 +241,7 @@ export default function RunnerPage() {
                         {/* Search Bar */}
                         <div className="flex-1 max-w-xl">
                             <Input
-                                placeholder="Search or scan barcode..."
+                                placeholder="Search by name or code..."
                                 value={searchTerm}
                                 onChange={(e) => {
                                     setSearchTerm(e.target.value);
@@ -229,6 +251,16 @@ export default function RunnerPage() {
                                 className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
                             />
                         </div>
+
+                        {/* Scan Button */}
+                        <Button
+                            variant="outline"
+                            onClick={() => setScannerDialogOpen(true)}
+                            className="border-slate-300 text-slate-700 bg-white hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600"
+                        >
+                            <ScanLine className="h-4 w-4 mr-2" />
+                            Scan
+                        </Button>
 
                         <nav className="flex gap-2 shrink-0">
                             {/* <a href="/admin/products" className="px-3 py-1 text-sm text-slate-600 hover:text-indigo-600 transition-colors">Admin</a> */}
@@ -310,7 +342,10 @@ export default function RunnerPage() {
                                                 </div>
                                             )}
                                             <h3 className="text-slate-800 font-medium text-sm truncate">{product.name}</h3>
-                                            <Badge variant="outline" className="text-xs border-indigo-300 text-indigo-600 bg-indigo-50">
+                                            {product.barcode && (
+                                                <div className="text-xs text-slate-400 font-mono truncate">{product.barcode}</div>
+                                            )}
+                                            <Badge variant="outline" className="text-xs border-indigo-300 text-indigo-600 bg-indigo-50 mt-1">
                                                 {product.category}
                                             </Badge>
                                             <div className="mt-1">
@@ -366,8 +401,8 @@ export default function RunnerPage() {
                     </main>
 
                     {/* Sidebar - Cart */}
-                    <aside className="w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col shadow-lg">
-                        <div className="p-4 border-b border-slate-200">
+                    <aside className="w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col shadow-lg h-full overflow-hidden">
+                        <div className="p-4 border-b border-slate-200 shrink-0">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
                                 {cart.length > 0 && (
@@ -383,65 +418,67 @@ export default function RunnerPage() {
                             </div>
                         </div>
 
-                        <ScrollArea className="flex-1 p-4">
-                            {cart.length === 0 ? (
-                                <div className="text-center text-slate-400 py-8">
-                                    Cart is empty
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {cart.map((item) => (
-                                        <div
-                                            key={item.product.id}
-                                            className="bg-slate-50 border border-slate-200 rounded-lg p-3"
-                                        >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="text-slate-800 text-sm font-medium truncate flex-1">
-                                                    {item.product.name}
-                                                </h4>
-                                                <button
-                                                    onClick={() => removeFromCart(item.product.id)}
-                                                    className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
-                                                        onClick={() => updateCartQuantity(item.product.id, item.quantity - (item.product.unit_type === 'weight' ? 0.1 : 1))}
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-4">
+                                {cart.length === 0 ? (
+                                    <div className="text-center text-slate-400 py-8">
+                                        Cart is empty
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {cart.map((item) => (
+                                            <div
+                                                key={item.product.id}
+                                                className="bg-slate-50 border border-slate-200 rounded-lg p-3"
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="text-slate-800 text-sm font-medium truncate flex-1">
+                                                        {item.product.name}
+                                                    </h4>
+                                                    <button
+                                                        onClick={() => removeFromCart(item.product.id)}
+                                                        className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
                                                     >
-                                                        -
-                                                    </Button>
-                                                    <span className="text-slate-800 w-12 text-center font-medium">
-                                                        {item.quantity}{item.product.unit_type === 'weight' ? (
-                                                            <span className="text-gray-500"> kg</span>
-                                                        ) : item.product.unit_type === 'pcs' ? (
-                                                            <span className="text-gray-500"> pcs</span>
-                                                        ) : (
-                                                            <span className="text-gray-500"> item</span>
-                                                        )}
-                                                    </span>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
-                                                        onClick={() => updateCartQuantity(item.product.id, item.quantity + (item.product.unit_type === 'weight' ? 0.1 : 1))}
-                                                    >
-                                                        +
-                                                    </Button>
+                                                        ✕
+                                                    </button>
                                                 </div>
-                                                <span className="text-green-600 font-mono text-sm font-semibold">
-                                                    {formatPrice(item.product.price * item.quantity)}
-                                                </span>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
+                                                            onClick={() => updateCartQuantity(item.product.id, item.quantity - (item.product.unit_type === 'weight' ? 0.1 : 1))}
+                                                        >
+                                                            -
+                                                        </Button>
+                                                        <span className="text-slate-800 w-12 text-center font-medium">
+                                                            {item.quantity}{item.product.unit_type === 'weight' ? (
+                                                                <span className="text-gray-500"> kg</span>
+                                                            ) : item.product.unit_type === 'pcs' ? (
+                                                                <span className="text-gray-500"> pcs</span>
+                                                            ) : (
+                                                                <span className="text-gray-500"> item</span>
+                                                            )}
+                                                        </span>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400"
+                                                            onClick={() => updateCartQuantity(item.product.id, item.quantity + (item.product.unit_type === 'weight' ? 0.1 : 1))}
+                                                        >
+                                                            +
+                                                        </Button>
+                                                    </div>
+                                                    <span className="text-green-600 font-mono text-sm font-semibold">
+                                                        {formatPrice(item.product.price * item.quantity)}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </ScrollArea>
 
                         {/* Cart Footer */}
@@ -557,6 +594,26 @@ export default function RunnerPage() {
                         </Button>
                         <p className="text-center text-xs text-slate-400 mt-2">Present this ticket to cashier for payment</p>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Barcode Scanner Dialog */}
+            <Dialog open={scannerDialogOpen} onOpenChange={setScannerDialogOpen}>
+                <DialogContent className="sm:max-w-[450px] bg-white border-slate-200 shadow-xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-slate-800 flex items-center gap-2">
+                            <ScanLine className="h-5 w-5 text-indigo-600" />
+                            Scan Product Barcode
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-500">
+                            Point your camera at a product barcode to add it to cart
+                        </DialogDescription>
+                    </DialogHeader>
+                    <BarcodeScanner
+                        onScanSuccess={handleBarcodeScan}
+                        onClose={() => setScannerDialogOpen(false)}
+                        autoStart
+                    />
                 </DialogContent>
             </Dialog>
         </div>

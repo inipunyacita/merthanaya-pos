@@ -667,6 +667,7 @@ export default function ProductsPage() {
                     <BarcodeScanner
                         onScanSuccess={handleBarcodeScan}
                         onClose={() => setIsScannerOpen(false)}
+                        autoStart
                     />
                 </DialogContent>
             </Dialog>

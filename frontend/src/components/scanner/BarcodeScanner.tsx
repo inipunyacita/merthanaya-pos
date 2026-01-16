@@ -21,6 +21,7 @@ interface BarcodeScannerProps {
     onScanSuccess: (decodedText: string) => void;
     onScanError?: (error: string) => void;
     onClose?: () => void;
+    autoStart?: boolean;
 }
 
 const SUPPORTED_FORMATS = [
@@ -33,7 +34,7 @@ const SUPPORTED_FORMATS = [
     Html5QrcodeSupportedFormats.QR_CODE,
 ];
 
-export function BarcodeScanner({ onScanSuccess, onScanError, onClose }: BarcodeScannerProps) {
+export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart = false }: BarcodeScannerProps) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [cameras, setCameras] = useState<CameraDevice[]>([]);
@@ -83,6 +84,13 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose }: BarcodeS
 
         getCameras();
     }, [isMounted]);
+
+    // Auto-start scanning when camera is ready and autoStart is enabled
+    useEffect(() => {
+        if (autoStart && selectedCamera && !isScanning && !isLoading && !error) {
+            startScanning();
+        }
+    }, [autoStart, selectedCamera, isLoading, error]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -235,7 +243,9 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose }: BarcodeS
             <p className="text-gray-500 text-sm text-center">
                 {isScanning
                     ? 'Point the camera at a barcode to scan'
-                    : 'Click "Start Scanning" to begin'}
+                    : autoStart
+                        ? 'Starting camera...'
+                        : 'Click "Start Scanning" to begin'}
             </p>
 
             {/* Controls */}
@@ -243,26 +253,28 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose }: BarcodeS
                 <Button
                     variant="outline"
                     onClick={handleClose}
-                    className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"
+                    className={autoStart ? "w-full border-gray-300 text-gray-700 hover:bg-gray-100" : "flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"}
                 >
                     Cancel
                 </Button>
-                {isScanning ? (
-                    <Button
-                        onClick={stopScanning}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                    >
-                        Stop Scanning
-                    </Button>
-                ) : (
-                    <Button
-                        onClick={startScanning}
-                        disabled={!selectedCamera}
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-                    >
-                        <Camera className="h-4 w-4 mr-2" />
-                        Start Scanning
-                    </Button>
+                {!autoStart && (
+                    isScanning ? (
+                        <Button
+                            onClick={stopScanning}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Stop Scanning
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={startScanning}
+                            disabled={!selectedCamera}
+                            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                            <Camera className="h-4 w-4 mr-2" />
+                            Start Scanning
+                        </Button>
+                    )
                 )}
             </div>
         </div>
