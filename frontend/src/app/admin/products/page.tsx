@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
+import { Pencil, Power, PowerOff, Trash2, ChevronLeft, ChevronRight, ScanLine } from 'lucide-react';
+import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import {
     Table,
     TableBody,
@@ -40,8 +41,14 @@ export default function ProductsPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState<string>('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+    // Scanner state
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [scanMode, setScanMode] = useState<'input' | 'lookup'>('input');
 
     // Form state
     const [formData, setFormData] = useState<ProductCreate>({
@@ -76,6 +83,17 @@ export default function ProductsPage() {
             setLoading(false);
         }
     }, [filterCategory, searchTerm]);
+
+    // Reset to page 1 when search or filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterCategory]);
+
+    // Calculate paginated products
+    const totalPages = Math.ceil(products.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedProducts = products.slice(startIndex, endIndex);
 
     useEffect(() => {
         fetchProducts();
@@ -194,6 +212,51 @@ export default function ProductsPage() {
         }).format(price);
     };
 
+    // Barcode scanner handlers
+    const openScanner = (mode: 'input' | 'lookup') => {
+        setScanMode(mode);
+        setIsScannerOpen(true);
+    };
+
+    const handleBarcodeScan = async (barcode: string) => {
+        setIsScannerOpen(false);
+
+        if (scanMode === 'input') {
+            // Fill the barcode field in the form
+            setFormData({ ...formData, barcode });
+            toast.success('Barcode Scanned', {
+                description: `Barcode "${barcode}" captured`,
+                duration: 2000,
+            });
+        } else if (scanMode === 'lookup') {
+            // Try to find product by barcode
+            try {
+                const product = await productApi.getByBarcode(barcode);
+                if (product) {
+                    openDialog(product);
+                    toast.success('Product Found', {
+                        description: `Found "${product.name}"`,
+                        duration: 2000,
+                    });
+                }
+            } catch (error) {
+                // Product not found - offer to create new
+                toast.info('Product Not Found', {
+                    description: `No product with barcode "${barcode}". Create a new one?`,
+                    duration: 5000,
+                    action: {
+                        label: 'Create',
+                        onClick: () => {
+                            resetForm();
+                            setFormData((prev) => ({ ...prev, barcode }));
+                            setIsDialogOpen(true);
+                        },
+                    },
+                });
+            }
+        }
+    };
+
     // Check if category requires barcode (Sembako) or image (Visual items)
     const showBarcode = ['Sembako', 'Daging', 'Canang', 'Sayur', 'Buah', 'Jajan', 'Minuman'].includes(formData.category);
     const showImage = ['Sembako', 'Daging', 'Canang', 'Sayur', 'Buah', 'Jajan'].includes(formData.category);
@@ -241,6 +304,14 @@ export default function ProductsPage() {
                             ))}
                         </SelectContent>
                     </Select>
+                    <Button
+                        variant="outline"
+                        onClick={() => openScanner('lookup')}
+                        className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                    >
+                        <ScanLine className="h-4 w-4 mr-2" />
+                        Scan Product
+                    </Button>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
                             <Button onClick={() => openDialog()} className="bg-purple-600 hover:bg-purple-700 text-white">
@@ -260,13 +331,25 @@ export default function ProductsPage() {
                                     {showBarcode && (
                                         <div className="grid grid-cols-4 items-center gap-4">
                                             <Label htmlFor="barcode" className="text-right">Barcode/Code</Label>
-                                            <Input
-                                                id="barcode"
-                                                value={formData.barcode || ''}
-                                                onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
-                                                className="col-span-3 bg-white border-gray-300 text-gray-900"
-                                                placeholder="Enter Code or Scan barcode"
-                                            />
+                                            <div className="col-span-3 flex gap-2">
+                                                <Input
+                                                    id="barcode"
+                                                    value={formData.barcode || ''}
+                                                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
+                                                    className="flex-1 bg-white border-gray-300 text-gray-900"
+                                                    placeholder="Enter Code or Scan barcode"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={() => openScanner('input')}
+                                                    className="border-gray-300 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+                                                    title="Scan barcode"
+                                                >
+                                                    <ScanLine className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     )}
                                     {/* Name */}
@@ -421,7 +504,7 @@ export default function ProductsPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                products.map((product) => (
+                                paginatedProducts.map((product) => (
                                     <TableRow key={product.id} className="border-gray-200 hover:bg-gray-50">
                                         <TableCell className="text-gray-500 font-mono text-sm">
                                             {product.barcode || '—'}
@@ -519,11 +602,74 @@ export default function ProductsPage() {
                     </Table>
                 </div>
 
-                {/* Summary */}
-                <div className="mt-4 text-sm text-gray-500">
-                    Showing {products.length} product{products.length !== 1 ? 's' : ''}
+                {/* Pagination Controls */}
+                <div className="mt-4 flex items-center justify-between">
+                    <div className="text-sm text-gray-500">
+                        Showing {products.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, products.length)} of {products.length} product{products.length !== 1 ? 's' : ''}
+                    </div>
+                    {totalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                                Previous
+                            </Button>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                    <Button
+                                        key={page}
+                                        variant={currentPage === page ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setCurrentPage(page)}
+                                        className={currentPage === page
+                                            ? 'bg-purple-600 hover:bg-purple-700 text-white min-w-8'
+                                            : 'border-gray-300 text-gray-700 hover:bg-gray-100 min-w-8'
+                                        }
+                                    >
+                                        {page}
+                                    </Button>
+                                ))}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                                Next
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </main>
+
+            {/* Barcode Scanner Dialog */}
+            <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
+                <DialogContent className="sm:max-w-[450px] bg-white border-gray-200">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 flex items-center gap-2">
+                            <ScanLine className="h-5 w-5 text-purple-600" />
+                            {scanMode === 'input' ? 'Scan Barcode' : 'Find Product by Barcode'}
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-500">
+                            {scanMode === 'input'
+                                ? 'Scan a barcode to fill the barcode field'
+                                : 'Scan a product barcode to find and edit it'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <BarcodeScanner
+                        onScanSuccess={handleBarcodeScan}
+                        onClose={() => setIsScannerOpen(false)}
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

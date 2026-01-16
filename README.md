@@ -120,6 +120,16 @@ npm run dev
 - [x] Cashier dashboard with pending orders
 - [x] Real-time order updates via Supabase
 
+### Sprint 1.5 - Admin Enhancements ✅
+- [x] **Pagination**: 10 products per page with navigation controls
+- [x] **Soft Delete/Reactivate**: Products can be deactivated and reactivated
+- [x] **Hard Delete**: Option to permanently delete products
+- [x] **Unit Types**: Support for kg, item, and pcs unit types
+- [x] **Light Theme**: Converted admin panel from dark to light theme
+- [x] **Icon-based Actions**: Edit, Deactivate, Activate, Delete buttons use Lucide React icons
+- [x] **Form UX**: Price/stock fields clear default 0 on focus
+- [x] **Tailwind CSS v4**: Updated to use new data attribute and CSS variable syntax
+
 ### Upcoming (Sprint 2-4)
 - [ ] Barcode scanner integration (html5-qrcode)
 - [ ] Bluetooth thermal printer support
