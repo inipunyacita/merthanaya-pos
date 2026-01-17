@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
-    Package,
     AlertTriangle,
-    ArrowLeft,
     RefreshCw,
     Plus,
     Minus,
@@ -14,6 +11,7 @@ import {
 import { inventoryApi, productApi } from '@/lib/api';
 import { LowStockProduct, Product } from '@/types';
 import { toast, Toaster } from 'sonner';
+import { AdminLayout } from '@/components/admin';
 
 export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
@@ -90,96 +88,67 @@ export default function InventoryPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <AdminLayout title="📦 Inventory Management" description="Monitor stock levels and make adjustments">
             <Toaster position="top-right" richColors />
 
-            {/* Header */}
-            <header className="bg-white shadow-sm border-b">
-                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href="/admin/products" className="p-2 hover:bg-gray-100 rounded-lg">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">📦 Inventory Management</h1>
-                            <p className="text-sm text-gray-500">Monitor stock levels and make adjustments</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-600">Low stock threshold:</label>
-                            <input
-                                type="number"
-                                value={threshold}
-                                onChange={(e) => setThreshold(Number(e.target.value))}
-                                className="w-20 px-2 py-1 border rounded text-sm"
-                                min={0}
-                            />
-                        </div>
-                        <button
-                            onClick={fetchData}
-                            disabled={loading}
-                            className="p-2 hover:bg-gray-100 rounded-lg"
-                        >
-                            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-                {/* Navigation */}
-                <div className="flex gap-2">
-                    <Link href="/admin/products" className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50">
-                        Products
-                    </Link>
-                    <Link href="/admin/analytics" className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50">
-                        Analytics
-                    </Link>
-                    <Link href="/admin/inventory" className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg">
-                        Inventory
-                    </Link>
-                    <Link href="/admin/transactions" className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50">
-                        Transactions
-                    </Link>
-                </div>
-
-                {/* Low Stock Alerts */}
-                {lowStockProducts.length > 0 && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                            <h3 className="font-semibold text-yellow-800">
-                                Low Stock Alert ({lowStockProducts.length} products)
-                            </h3>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {lowStockProducts.map(product => (
-                                <span
-                                    key={product.id}
-                                    className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm"
-                                >
-                                    {product.name}: {product.stock} {product.unit_type}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Search */}
-                <div className="bg-white rounded-xl shadow-sm p-4 border">
+            {/* Controls - Responsive */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600 whitespace-nowrap">Low stock:</label>
                     <input
-                        type="text"
-                        placeholder="Search products..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg"
+                        type="number"
+                        value={threshold}
+                        onChange={(e) => setThreshold(Number(e.target.value))}
+                        className="w-16 px-2 py-1 border rounded text-sm"
+                        min={0}
                     />
                 </div>
+                <button
+                    onClick={fetchData}
+                    disabled={loading}
+                    className="p-2 hover:bg-gray-100 rounded-lg border"
+                >
+                    <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+            </div>
 
-                {/* Products Table */}
-                <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                    <table className="w-full">
+            {/* Low Stock Alerts */}
+            {lowStockProducts.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                        <h3 className="font-semibold text-yellow-800">
+                            Low Stock Alert ({lowStockProducts.length} products)
+                        </h3>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {lowStockProducts.map(product => (
+                            <span
+                                key={product.id}
+                                className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm"
+                            >
+                                {product.name}: {product.stock} {product.unit_type}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Search */}
+            <div className="bg-white rounded-xl shadow-sm p-4 border mb-6">
+                <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg"
+                />
+            </div>
+
+            {/* Products Table - Scrollable on mobile */}
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[800px]">
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Product</th>
@@ -281,7 +250,7 @@ export default function InventoryPage() {
                         </tbody>
                     </table>
                 </div>
-            </main>
-        </div>
+            </div>
+        </AdminLayout>
     );
 }

@@ -35,6 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { Toaster, toast } from 'sonner';
 import { Product, ProductCreate, ProductUpdate, PRODUCT_CATEGORIES } from '@/types';
 import { productApi } from '@/lib/api';
+import { AdminLayout } from '@/components/admin';
 
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -263,392 +264,373 @@ export default function ProductsPage() {
     const showWeightUnit = ['Sembako', 'Daging', 'Sayur', 'Buah'].includes(formData.category);
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <AdminLayout title="📦 Products" description="Manage your product inventory">
             <Toaster richColors position="top-right" closeButton />
-
-            {/* Header */}
-            <header className="border-b border-gray-200 bg-white shadow-sm">
-                <div className="container mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">ADMIN - Merthanaya</h1>
-                            <p className="text-sm text-gray-500">Store and Inventory Management Tools</p>
-                        </div>
-                        <nav className="flex gap-4">
-                            <a href="/runner" className="px-4 py-2 text-gray-600 hover:text-gray-900 transition">Runner</a>
-                            <a href="/cashier" className="px-4 py-2 text-gray-600 hover:text-gray-900 transition">Cashier</a>
-                        </nav>
-                    </div>
+            {/* Controls */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                    <Input
+                        placeholder="Search products by name or barcode..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                    />
                 </div>
-            </header>
-
-            <main className="container mx-auto px-6 py-8">
-                {/* Controls */}
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                    <div className="flex-1">
-                        <Input
-                            placeholder="Search products by name or barcode..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-                        />
-                    </div>
-                    <Select value={filterCategory} onValueChange={setFilterCategory}>
-                        <SelectTrigger className="w-[180px] bg-white border-gray-300 text-gray-900">
-                            <SelectValue placeholder="All Categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Categories</SelectItem>
-                            {PRODUCT_CATEGORIES.map((cat) => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Button
-                        variant="outline"
-                        onClick={() => openScanner('lookup')}
-                        className="border-gray-300 text-gray-700 hover:bg-gray-100"
-                    >
-                        <ScanLine className="h-4 w-4 mr-2" />
-                        Scan Product
-                    </Button>
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button onClick={() => openDialog()} className="bg-purple-600 hover:bg-purple-700 text-white">
-                                + Add Product
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px] bg-white border-gray-200 text-gray-900">
-                            <form onSubmit={handleSubmit}>
-                                <DialogHeader>
-                                    <DialogTitle className="text-gray-900">{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
-                                    <DialogDescription className="text-gray-500">
-                                        {showBarcode ? 'Barcoded product (Sembako)' : 'Visual product with image'}
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    {/* Barcode - Only for Sembako */}
-                                    {showBarcode && (
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="barcode" className="text-right">Barcode/Code</Label>
-                                            <div className="col-span-3 flex gap-2">
-                                                <Input
-                                                    id="barcode"
-                                                    value={formData.barcode || ''}
-                                                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
-                                                    className="flex-1 bg-white border-gray-300 text-gray-900"
-                                                    placeholder="Enter Code or Scan barcode"
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={() => openScanner('input')}
-                                                    className="border-gray-300 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
-                                                    title="Scan barcode"
-                                                >
-                                                    <ScanLine className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {/* Name */}
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-[180px] bg-white border-gray-300 text-gray-900">
+                        <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {PRODUCT_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Button
+                    variant="outline"
+                    onClick={() => openScanner('lookup')}
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                    <ScanLine className="h-4 w-4 mr-2" />
+                    Scan Product
+                </Button>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button onClick={() => openDialog()} className="bg-purple-600 hover:bg-purple-700 text-white">
+                            + Add Product
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px] bg-white border-gray-200 text-gray-900">
+                        <form onSubmit={handleSubmit}>
+                            <DialogHeader>
+                                <DialogTitle className="text-gray-900">{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+                                <DialogDescription className="text-gray-500">
+                                    {showBarcode ? 'Barcoded product (Sembako)' : 'Visual product with image'}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                {/* Barcode - Only for Sembako */}
+                                {showBarcode && (
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="name" className="text-right">Name</Label>
+                                        <Label htmlFor="barcode" className="text-right">Barcode/Code</Label>
+                                        <div className="col-span-3 flex gap-2">
+                                            <Input
+                                                id="barcode"
+                                                value={formData.barcode || ''}
+                                                onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
+                                                className="flex-1 bg-white border-gray-300 text-gray-900"
+                                                placeholder="Enter Code or Scan barcode"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => openScanner('input')}
+                                                className="border-gray-300 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+                                                title="Scan barcode"
+                                            >
+                                                <ScanLine className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* Name */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="name" className="text-right">Name</Label>
+                                    <Input
+                                        id="name"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        className="col-span-3 bg-white border-gray-300 text-gray-900"
+                                        required
+                                    />
+                                </div>
+
+                                {/* Category */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="category" className="text-right">Category</Label>
+                                    <Select
+                                        value={formData.category}
+                                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                                    >
+                                        <SelectTrigger className="col-span-3 bg-white border-gray-300 text-gray-900">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {PRODUCT_CATEGORIES.map((cat) => (
+                                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Price */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="price" className="text-right">Price (Rp)</Label>
+                                    <Input
+                                        id="price"
+                                        type="number"
+                                        min="0"
+                                        step="500"
+                                        value={formData.price || ''}
+                                        onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) || 0 })}
+                                        onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                        placeholder="0"
+                                        className="col-span-3 bg-white border-gray-300 text-gray-900"
+                                        required
+                                    />
+                                </div>
+
+                                {/* Stock */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="stock" className="text-right">Stock</Label>
+                                    <Input
+                                        id="stock"
+                                        type="number"
+                                        min="0"
+                                        value={formData.stock || ''}
+                                        onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) || 0 })}
+                                        onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                        placeholder="0"
+                                        className="col-span-3 bg-white border-gray-300 text-gray-900"
+                                    />
+                                </div>
+
+                                {/* Image URL - Only for Visual items */}
+                                {showImage && (
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="image_url" className="text-right">Image URL</Label>
                                         <Input
-                                            id="name"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            id="image_url"
+                                            value={formData.image_url || ''}
+                                            onChange={(e) => setFormData({ ...formData, image_url: e.target.value || null })}
                                             className="col-span-3 bg-white border-gray-300 text-gray-900"
-                                            required
+                                            placeholder="https://..."
                                         />
                                     </div>
+                                )}
 
-                                    {/* Category */}
+                                {/* Unit Type - For items sold by weight */}
+                                {showWeightUnit && (
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="category" className="text-right">Category</Label>
+                                        <Label htmlFor="unit_type" className="text-right">Sold by</Label>
                                         <Select
-                                            value={formData.category}
-                                            onValueChange={(value) => setFormData({ ...formData, category: value })}
+                                            value={formData.unit_type}
+                                            onValueChange={(value: 'item' | 'weight') => setFormData({ ...formData, unit_type: value })}
                                         >
                                             <SelectTrigger className="col-span-3 bg-white border-gray-300 text-gray-900">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {PRODUCT_CATEGORIES.map((cat) => (
-                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                                ))}
+                                                <SelectItem value="item">Per Item</SelectItem>
+                                                <SelectItem value="weight">Per Kg</SelectItem>
+                                                <SelectItem value="pcs">Per Pcs</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                )}
 
-                                    {/* Price */}
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="price" className="text-right">Price (Rp)</Label>
-                                        <Input
-                                            id="price"
-                                            type="number"
-                                            min="0"
-                                            step="500"
-                                            value={formData.price || ''}
-                                            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) || 0 })}
-                                            onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
-                                            placeholder="0"
-                                            className="col-span-3 bg-white border-gray-300 text-gray-900"
-                                            required
+                                {/* Active Toggle */}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="is_active" className="text-right">Active</Label>
+                                    <div className="col-span-3 flex items-center">
+                                        <Switch
+                                            id="is_active"
+                                            checked={formData.is_active}
+                                            onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                                         />
-                                    </div>
-
-                                    {/* Stock */}
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="stock" className="text-right">Stock</Label>
-                                        <Input
-                                            id="stock"
-                                            type="number"
-                                            min="0"
-                                            value={formData.stock || ''}
-                                            onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) || 0 })}
-                                            onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
-                                            placeholder="0"
-                                            className="col-span-3 bg-white border-gray-300 text-gray-900"
-                                        />
-                                    </div>
-
-                                    {/* Image URL - Only for Visual items */}
-                                    {showImage && (
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="image_url" className="text-right">Image URL</Label>
-                                            <Input
-                                                id="image_url"
-                                                value={formData.image_url || ''}
-                                                onChange={(e) => setFormData({ ...formData, image_url: e.target.value || null })}
-                                                className="col-span-3 bg-white border-gray-300 text-gray-900"
-                                                placeholder="https://..."
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Unit Type - For items sold by weight */}
-                                    {showWeightUnit && (
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="unit_type" className="text-right">Sold by</Label>
-                                            <Select
-                                                value={formData.unit_type}
-                                                onValueChange={(value: 'item' | 'weight') => setFormData({ ...formData, unit_type: value })}
-                                            >
-                                                <SelectTrigger className="col-span-3 bg-white border-gray-300 text-gray-900">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="item">Per Item</SelectItem>
-                                                    <SelectItem value="weight">Per Kg</SelectItem>
-                                                    <SelectItem value="pcs">Per Pcs</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    )}
-
-                                    {/* Active Toggle */}
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="is_active" className="text-right">Active</Label>
-                                        <div className="col-span-3 flex items-center">
-                                            <Switch
-                                                id="is_active"
-                                                checked={formData.is_active}
-                                                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                                            />
-                                            <span className="ml-2 text-sm text-gray-600">
-                                                {formData.is_active ? 'Available for sale' : 'Hidden from runners'}
-                                            </span>
-                                        </div>
+                                        <span className="ml-2 text-sm text-gray-600">
+                                            {formData.is_active ? 'Available for sale' : 'Hidden from runners'}
+                                        </span>
                                     </div>
                                 </div>
-                                <DialogFooter>
-                                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-300 text-gray-700 hover:bg-gray-100">
-                                        Cancel
-                                    </Button>
-                                    <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">
-                                        {editingProduct ? 'Save Changes' : 'Create Product'}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-
-                {/* Products Table */}
-                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="border-gray-200 bg-gray-50 hover:bg-gray-100">
-                                <TableHead className="text-gray-700 font-semibold">Code</TableHead>
-                                <TableHead className="text-gray-700 font-semibold">Name</TableHead>
-                                <TableHead className="text-gray-700 font-semibold">Category</TableHead>
-                                <TableHead className="text-gray-700 font-semibold">Price</TableHead>
-                                <TableHead className="text-gray-700 font-semibold">Stock</TableHead>
-                                <TableHead className="text-gray-700 font-semibold">Status</TableHead>
-                                <TableHead className="text-gray-700 font-semibold text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                                        Loading products...
-                                    </TableCell>
-                                </TableRow>
-                            ) : products.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                                        No products found. Add your first product!
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                paginatedProducts.map((product) => (
-                                    <TableRow key={product.id} className="border-gray-200 hover:bg-gray-50">
-                                        <TableCell className="text-gray-500 font-mono text-sm">
-                                            {product.barcode || '—'}
-                                        </TableCell>
-                                        <TableCell className="font-medium text-gray-900">
-                                            <div className="flex items-center gap-3">
-                                                {product.image_url && (
-                                                    <img
-                                                        src={product.image_url}
-                                                        alt={product.name}
-                                                        className="w-10 h-10 rounded-lg object-cover"
-                                                    />
-                                                )}
-                                                {product.name}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="border-purple-500 text-purple-600">
-                                                {product.category}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-green-600 font-mono">
-                                            {formatPrice(product.price)}
-                                            {product.unit_type === 'weight' ? (
-                                                <span className="text-gray-500">/kg</span>
-                                            ) : product.unit_type === 'pcs' ? (
-                                                <span className="text-gray-500">/pcs</span>
-                                            ) : (
-                                                <span className="text-gray-500">/item</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-gray-700">
-                                            {product.stock}
-                                            {product.unit_type === 'weight' ? (
-                                                <span className="text-gray-500"> kg</span>
-                                            ) : product.unit_type === 'pcs' ? (
-                                                <span className="text-gray-500"> pcs</span>
-                                            ) : (
-                                                <span className="text-gray-500"> item</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant={product.is_active ? 'default' : 'secondary'}
-                                                className={product.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}
-                                            >
-                                                {product.is_active ? 'Active' : 'Inactive'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => openDialog(product)}
-                                                className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                                                title="Edit"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            {product.is_active ? (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleDeactivate(product)}
-                                                    className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10"
-                                                    title="Deactivate"
-                                                >
-                                                    <PowerOff className="h-4 w-4" />
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleReactivate(product)}
-                                                    className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
-                                                    title="Activate"
-                                                >
-                                                    <Power className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDeletePerm(product)}
-                                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                                                title="Delete"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                {/* Pagination Controls */}
-                <div className="mt-4 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                        Showing {products.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, products.length)} of {products.length} product{products.length !== 1 ? 's' : ''}
-                    </div>
-                    {totalPages > 1 && (
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                                Previous
-                            </Button>
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                    <Button
-                                        key={page}
-                                        variant={currentPage === page ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setCurrentPage(page)}
-                                        className={currentPage === page
-                                            ? 'bg-purple-600 hover:bg-purple-700 text-white min-w-8'
-                                            : 'border-gray-300 text-gray-700 hover:bg-gray-100 min-w-8'
-                                        }
-                                    >
-                                        {page}
-                                    </Button>
-                                ))}
                             </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages}
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                                Next
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    )}
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-300 text-gray-700 hover:bg-gray-100">
+                                    Cancel
+                                </Button>
+                                <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">
+                                    {editingProduct ? 'Save Changes' : 'Create Product'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+
+            {/* Products Table */}
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="border-gray-200 bg-gray-50 hover:bg-gray-100">
+                            <TableHead className="text-gray-700 font-semibold">Code</TableHead>
+                            <TableHead className="text-gray-700 font-semibold">Name</TableHead>
+                            <TableHead className="text-gray-700 font-semibold">Category</TableHead>
+                            <TableHead className="text-gray-700 font-semibold">Price</TableHead>
+                            <TableHead className="text-gray-700 font-semibold">Stock</TableHead>
+                            <TableHead className="text-gray-700 font-semibold">Status</TableHead>
+                            <TableHead className="text-gray-700 font-semibold text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                                    Loading products...
+                                </TableCell>
+                            </TableRow>
+                        ) : products.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                                    No products found. Add your first product!
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            paginatedProducts.map((product) => (
+                                <TableRow key={product.id} className="border-gray-200 hover:bg-gray-50">
+                                    <TableCell className="text-gray-500 font-mono text-sm">
+                                        {product.barcode || '—'}
+                                    </TableCell>
+                                    <TableCell className="font-medium text-gray-900">
+                                        <div className="flex items-center gap-3">
+                                            {product.image_url && (
+                                                <img
+                                                    src={product.image_url}
+                                                    alt={product.name}
+                                                    className="w-10 h-10 rounded-lg object-cover"
+                                                />
+                                            )}
+                                            {product.name}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className="border-purple-500 text-purple-600">
+                                            {product.category}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-green-600 font-mono">
+                                        {formatPrice(product.price)}
+                                        {product.unit_type === 'weight' ? (
+                                            <span className="text-gray-500">/kg</span>
+                                        ) : product.unit_type === 'pcs' ? (
+                                            <span className="text-gray-500">/pcs</span>
+                                        ) : (
+                                            <span className="text-gray-500">/item</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-gray-700">
+                                        {product.stock}
+                                        {product.unit_type === 'weight' ? (
+                                            <span className="text-gray-500"> kg</span>
+                                        ) : product.unit_type === 'pcs' ? (
+                                            <span className="text-gray-500"> pcs</span>
+                                        ) : (
+                                            <span className="text-gray-500"> item</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge
+                                            variant={product.is_active ? 'default' : 'secondary'}
+                                            className={product.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}
+                                        >
+                                            {product.is_active ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => openDialog(product)}
+                                            className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                                            title="Edit"
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        {product.is_active ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleDeactivate(product)}
+                                                className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10"
+                                                title="Deactivate"
+                                            >
+                                                <PowerOff className="h-4 w-4" />
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleReactivate(product)}
+                                                className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                                                title="Activate"
+                                            >
+                                                <Power className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDeletePerm(product)}
+                                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                            title="Delete"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-500 order-2 sm:order-1">
+                    Showing {products.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, products.length)} of {products.length} product{products.length !== 1 ? 's' : ''}
                 </div>
-            </main>
+                {totalPages > 1 && (
+                    <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            <span className="hidden sm:inline ml-1">Previous</span>
+                        </Button>
+                        <div className="flex items-center gap-1 flex-wrap justify-center">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                <Button
+                                    key={page}
+                                    variant={currentPage === page ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setCurrentPage(page)}
+                                    className={currentPage === page
+                                        ? 'bg-purple-600 hover:bg-purple-700 text-white min-w-8'
+                                        : 'border-gray-300 text-gray-700 hover:bg-gray-100 min-w-8'
+                                    }
+                                >
+                                    {page}
+                                </Button>
+                            ))}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                        >
+                            <span className="hidden sm:inline mr-1">Next</span>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
+            </div>
 
             {/* Barcode Scanner Dialog */}
             <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
@@ -671,6 +653,7 @@ export default function ProductsPage() {
                     />
                 </DialogContent>
             </Dialog>
-        </div>
+        </AdminLayout>
     );
 }
+

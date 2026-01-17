@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, ScanLine, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ScanLine, Printer, ShoppingCart, X, Menu } from 'lucide-react';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,9 @@ export default function RunnerPage() {
 
     // Scanner dialog state
     const [scannerDialogOpen, setScannerDialogOpen] = useState(false);
+
+    // Mobile cart visibility
+    const [cartOpen, setCartOpen] = useState(false);
 
     // Ticket dialog state
     const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
@@ -186,6 +189,8 @@ export default function RunnerPage() {
         0
     );
 
+    const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
     const handlePrintBill = async () => {
         if (cart.length === 0) {
             toast.error('Cart is empty');
@@ -212,6 +217,7 @@ export default function RunnerPage() {
                 createdAt: new Date(),
             });
             setTicketDialogOpen(true);
+            setCartOpen(false);
             clearCart();
             toast.success(`Order ${response.short_id} created!`);
         } catch (error: unknown) {
@@ -237,11 +243,14 @@ export default function RunnerPage() {
             {/* Header */}
             <header className="border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
                 <div className="container mx-auto px-4 py-3">
-                    <div className="flex items-center justify-between gap-4">
-                        <img src="/favicon.svg" className="w-6 h-6" alt="" /> <h1 className="text-xl font-bold text-slate-800 shrink-0">Runner POS</h1>
+                    <div className="flex items-center justify-between gap-2 sm:gap-4">
+                        <div className="flex items-center gap-2">
+                            <img src="/favicon.svg" className="w-6 h-6" alt="" />
+                            <h1 className="text-lg sm:text-xl font-bold text-slate-800 shrink-0">Runner</h1>
+                        </div>
 
                         {/* Search Bar */}
-                        <div className="flex-1 max-w-xl">
+                        <div className="flex-1 max-w-xl hidden sm:block">
                             <Input
                                 placeholder="Search by name or code..."
                                 value={searchTerm}
@@ -257,17 +266,46 @@ export default function RunnerPage() {
                         {/* Scan Button */}
                         <Button
                             variant="outline"
+                            size="sm"
                             onClick={() => setScannerDialogOpen(true)}
                             className="border-slate-300 text-slate-700 bg-white hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600"
                         >
-                            <ScanLine className="h-4 w-4 mr-2" />
-                            Scan
+                            <ScanLine className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Scan</span>
                         </Button>
 
-                        <nav className="flex gap-2 shrink-0">
-                            {/* <a href="/admin/products" className="px-3 py-1 text-sm text-slate-600 hover:text-indigo-600 transition-colors">Admin</a> */}
+                        {/* Mobile Cart Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCartOpen(true)}
+                            className="lg:hidden relative border-slate-300 text-slate-700 bg-white hover:bg-indigo-50"
+                        >
+                            <ShoppingCart className="h-4 w-4" />
+                            {cart.length > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                    {cart.length}
+                                </span>
+                            )}
+                        </Button>
+
+                        <nav className="hidden md:flex gap-2 shrink-0">
                             <a href="/cashier" className="px-3 py-1 text-sm text-slate-600 hover:text-indigo-600 transition-colors">Cashier</a>
                         </nav>
+                    </div>
+
+                    {/* Mobile Search Bar */}
+                    <div className="mt-3 sm:hidden">
+                        <Input
+                            placeholder="Search products..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            onKeyDown={handleSearchKeyPress}
+                            className="bg-white border-slate-300 text-slate-800"
+                        />
                     </div>
                 </div>
             </header>
@@ -275,9 +313,9 @@ export default function RunnerPage() {
             <div className="container mx-auto px-4">
                 <div className="flex h-[calc(100vh-60px)]">
                     {/* Main Content - Product Grid */}
-                    <main className="flex-1 overflow-auto py-4 pr-4">
-                        {/* Category Tabs */}
-                        <div className="flex gap-2 mb-4 items-center">
+                    <main className="flex-1 overflow-auto py-4 lg:pr-4">
+                        {/* Category Tabs - Scrollable on mobile */}
+                        <div className="flex gap-2 mb-4 items-center overflow-x-auto pb-2">
                             <Button
                                 variant={activeCategory === 'all' ? 'default' : 'outline'}
                                 size="sm"
@@ -285,7 +323,7 @@ export default function RunnerPage() {
                                     setActiveCategory('all');
                                     setCurrentPage(1);
                                 }}
-                                className={activeCategory === 'all' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}
+                                className={`shrink-0 ${activeCategory === 'all' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}`}
                             >
                                 All
                             </Button>
@@ -297,12 +335,12 @@ export default function RunnerPage() {
                                 }}
                             >
                                 <SelectTrigger
-                                    className={`w-[180px] h-9 text-sm ${activeCategory !== 'all'
+                                    className={`w-[140px] sm:w-[180px] h-9 text-sm shrink-0 ${activeCategory !== 'all'
                                         ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 [&_svg]:text-white'
                                         : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400'
                                         }`}
                                 >
-                                    <SelectValue placeholder="Other Category" />
+                                    <SelectValue placeholder="Category" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {PRODUCT_CATEGORIES.map((cat) => (
@@ -324,34 +362,31 @@ export default function RunnerPage() {
                                 No products found
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                                 {products.map((product) => (
                                     <Card
                                         key={product.id}
                                         className="bg-white border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100 transition-all duration-200 cursor-pointer group"
                                         onClick={() => handleProductClick(product)}
                                     >
-                                        <CardContent className="p-3">
+                                        <CardContent className="p-2 sm:p-3">
                                             {product.image_url ? (
                                                 <img
                                                     src={product.image_url}
                                                     alt={product.name}
-                                                    className="w-full h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition"
+                                                    className="w-full h-16 sm:h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition"
                                                 />
                                             ) : (
-                                                <div className="w-full h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
-                                                    <span className="text-3xl">📦</span>
+                                                <div className="w-full h-16 sm:h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
+                                                    <span className="text-2xl sm:text-3xl">📦</span>
                                                 </div>
                                             )}
-                                            <h3 className="text-slate-800 font-medium text-sm truncate">{product.name}</h3>
-                                            {product.barcode && (
-                                                <div className="text-xs text-slate-400 font-mono truncate">{product.barcode}</div>
-                                            )}
-                                            <Badge variant="outline" className="text-xs border-indigo-300 text-indigo-600 bg-indigo-50 mt-1">
+                                            <h3 className="text-slate-800 font-medium text-xs sm:text-sm truncate">{product.name}</h3>
+                                            <Badge variant="outline" className="text-[10px] sm:text-xs border-indigo-300 text-indigo-600 bg-indigo-50 mt-1">
                                                 {product.category}
                                             </Badge>
                                             <div className="mt-1">
-                                                <span className="text-green-600 font-mono text-sm font-semibold">
+                                                <span className="text-green-600 font-mono text-xs sm:text-sm font-semibold">
                                                     {formatPrice(product.price)}
                                                     {product.unit_type === 'weight' ? (
                                                         <span className="text-gray-500">/kg</span>
@@ -370,7 +405,7 @@ export default function RunnerPage() {
 
                         {/* Pagination Controls */}
                         {!loading && totalProducts > PAGE_SIZE && (
-                            <div className="flex items-center justify-center gap-4 mt-6 pb-4">
+                            <div className="flex items-center justify-center gap-2 sm:gap-4 mt-6 pb-4">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -380,11 +415,11 @@ export default function RunnerPage() {
                                     disabled={currentPage === 1}
                                     className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
                                 >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    Previous
+                                    <ChevronLeft className="h-4 w-4" />
+                                    <span className="hidden sm:inline ml-1">Previous</span>
                                 </Button>
                                 <span className="text-sm text-slate-600">
-                                    Page {currentPage} of {Math.ceil(totalProducts / PAGE_SIZE)}
+                                    {currentPage} / {Math.ceil(totalProducts / PAGE_SIZE)}
                                 </span>
                                 <Button
                                     variant="outline"
@@ -395,15 +430,15 @@ export default function RunnerPage() {
                                     disabled={currentPage >= Math.ceil(totalProducts / PAGE_SIZE)}
                                     className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
                                 >
-                                    Next
-                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                    <span className="hidden sm:inline mr-1">Next</span>
+                                    <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>
                         )}
                     </main>
 
-                    {/* Sidebar - Cart */}
-                    <aside className="w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col shadow-lg h-full overflow-hidden">
+                    {/* Desktop Cart Sidebar */}
+                    <aside className="hidden lg:flex w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex-col shadow-lg h-full overflow-hidden">
                         <div className="p-4 border-b border-slate-200 shrink-0">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
@@ -503,9 +538,112 @@ export default function RunnerPage() {
                 </div>
             </div>
 
+            {/* Mobile Cart Overlay */}
+            {cartOpen && (
+                <div className="lg:hidden fixed inset-0 bg-black/50 z-50" onClick={() => setCartOpen(false)} />
+            )}
+
+            {/* Mobile Cart Sheet */}
+            <div className={`lg:hidden fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl transform transition-transform duration-300 flex flex-col ${cartOpen ? 'translate-y-0' : 'translate-y-full'}`}
+                style={{ maxHeight: '75vh' }}
+            >
+                <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-800">Cart ({cart.length})</h2>
+                    <div className="flex items-center gap-2">
+                        {cart.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={clearCart}
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                                Clear
+                            </Button>
+                        )}
+                        <button onClick={() => setCartOpen(false)} className="p-2">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                <ScrollArea className="flex-1 overflow-auto">
+                    <div className="p-4">
+                        {cart.length === 0 ? (
+                            <div className="text-center text-slate-400 py-8">
+                                Cart is empty
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {cart.map((item) => (
+                                    <div
+                                        key={item.product.id}
+                                        className="bg-slate-50 border border-slate-200 rounded-lg p-3"
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h4 className="text-slate-800 text-sm font-medium truncate flex-1">
+                                                {item.product.name}
+                                            </h4>
+                                            <button
+                                                onClick={() => removeFromCart(item.product.id)}
+                                                className="text-slate-400 hover:text-red-500 ml-2 transition-colors"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 w-7 p-0"
+                                                    onClick={() => updateCartQuantity(item.product.id, item.quantity - (item.product.unit_type === 'weight' ? 0.1 : 1))}
+                                                >
+                                                    -
+                                                </Button>
+                                                <span className="text-slate-800 text-sm font-medium">
+                                                    {item.quantity}
+                                                </span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 w-7 p-0"
+                                                    onClick={() => updateCartQuantity(item.product.id, item.quantity + (item.product.unit_type === 'weight' ? 0.1 : 1))}
+                                                >
+                                                    +
+                                                </Button>
+                                            </div>
+                                            <span className="text-green-600 font-mono text-sm font-semibold">
+                                                {formatPrice(item.product.price * item.quantity)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+
+                {/* Mobile Cart Footer */}
+                <div className="p-4 border-t border-slate-200 bg-white">
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="text-slate-500">Total</span>
+                        <span className="text-2xl font-bold text-slate-800">
+                            {formatPrice(cartTotal)}
+                        </span>
+                    </div>
+                    <Button
+                        className="w-full h-12 text-lg bg-linear-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                        onClick={handlePrintBill}
+                        disabled={cart.length === 0 || submitting}
+                    >
+                        {submitting ? 'Processing...' : 'Submit Order'}
+                    </Button>
+                </div>
+            </div>
+
             {/* Quantity Dialog */}
             <Dialog open={quantityDialogOpen} onOpenChange={setQuantityDialogOpen}>
-                <DialogContent className="sm:max-w-[400px] bg-white border-slate-200 shadow-xl">
+                <DialogContent className="max-w-[90vw] sm:max-w-[400px] bg-white border-slate-200 shadow-xl">
                     <DialogHeader>
                         <DialogTitle className="text-slate-800">Enter Quantity</DialogTitle>
                         <DialogDescription className="text-slate-500">
@@ -525,7 +663,7 @@ export default function RunnerPage() {
                             autoFocus
                         />
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
                         <Button variant="outline" onClick={() => setQuantityDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
                             Cancel
                         </Button>
@@ -541,7 +679,7 @@ export default function RunnerPage() {
 
             {/* Ticket Success Dialog - Invoice Style */}
             <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-                <DialogContent className="sm:max-w-[400px] bg-white border-slate-200 shadow-xl p-0 overflow-hidden">
+                <DialogContent className="max-w-[90vw] sm:max-w-[400px] bg-white border-slate-200 shadow-xl p-0 overflow-hidden">
                     {/* Visually hidden title for accessibility */}
                     <DialogTitle className="sr-only">Order Ticket {lastTicket?.shortId}</DialogTitle>
                     {/* Invoice Header */}
@@ -610,7 +748,7 @@ export default function RunnerPage() {
 
             {/* Barcode Scanner Dialog */}
             <Dialog open={scannerDialogOpen} onOpenChange={setScannerDialogOpen}>
-                <DialogContent className="sm:max-w-[450px] bg-white border-slate-200 shadow-xl">
+                <DialogContent className="max-w-[90vw] sm:max-w-[450px] bg-white border-slate-200 shadow-xl">
                     <DialogHeader>
                         <DialogTitle className="text-slate-800 flex items-center gap-2">
                             <ScanLine className="h-5 w-5 text-indigo-600" />

@@ -1,19 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
-    FileText,
-    ArrowLeft,
     RefreshCw,
     Download,
     Search,
-    Calendar,
-    Filter
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react';
 import { orderApi } from '@/lib/api';
 import { OrderSummary } from '@/types';
 import { toast, Toaster } from 'sonner';
+import { AdminLayout } from '@/components/admin';
 
 export default function TransactionsPage() {
     const [loading, setLoading] = useState(true);
@@ -33,7 +31,7 @@ export default function TransactionsPage() {
         try {
             const result = await orderApi.getHistory({
                 page,
-                page_size: 20,
+                page_size: 10,
                 status: status || undefined,
                 date_from: dateFrom || undefined,
                 date_to: dateTo || undefined,
@@ -129,135 +127,113 @@ export default function TransactionsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <AdminLayout title="📋 Transaction History" description="View and export all orders">
             <Toaster position="top-right" richColors />
 
-            {/* Header */}
-            <header className="bg-white shadow-sm border-b">
-                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href="/admin/products" className="p-2 hover:bg-gray-100 rounded-lg">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">📋 Transaction History</h1>
-                            <p className="text-sm text-gray-500">View and export all orders</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={exportToCSV}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                        >
-                            <Download className="w-4 h-4" />
-                            Export CSV
-                        </button>
-                        <button
-                            onClick={fetchTransactions}
-                            disabled={loading}
-                            className="p-2 hover:bg-gray-100 rounded-lg"
-                        >
-                            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                        </button>
-                    </div>
-                </div>
-            </header>
+            {/* Controls - Responsive */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+                <button
+                    onClick={exportToCSV}
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Export CSV</span>
+                    <span className="sm:hidden">CSV</span>
+                </button>
+                <button
+                    onClick={fetchTransactions}
+                    disabled={loading}
+                    className="p-2 hover:bg-gray-100 rounded-lg border"
+                >
+                    <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+            </div>
 
-            <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-                {/* Navigation */}
-                <div className="flex gap-2">
-                    <Link href="/admin/products" className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50">
-                        Products
-                    </Link>
-                    <Link href="/admin/analytics" className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50">
-                        Analytics
-                    </Link>
-                    <Link href="/admin/inventory" className="px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50">
-                        Inventory
-                    </Link>
-                    <Link href="/admin/transactions" className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg">
-                        Transactions
-                    </Link>
-                </div>
-
-                {/* Filters */}
-                <div className="bg-white rounded-xl shadow-sm p-4 border">
-                    <div className="flex flex-wrap items-end gap-4">
-                        <div className="flex-1 min-w-[200px]">
-                            <label className="block text-sm text-gray-600 mb-1">Search Invoice ID</label>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="INV-20260116-001"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                    className="w-full pl-10 pr-4 py-2 border rounded-lg"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1">Status</label>
-                            <select
-                                value={status}
-                                onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-                                className="px-4 py-2 border rounded-lg bg-white"
-                            >
-                                <option value="">All Status</option>
-                                <option value="PAID">Paid</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="CANCELLED">Cancelled</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1">From Date</label>
+            {/* Filters - Responsive Grid */}
+            <div className="bg-white rounded-xl shadow-sm p-4 border mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                    {/* Search - Full width on mobile */}
+                    <div className="sm:col-span-2">
+                        <label className="block text-sm text-gray-600 mb-1">Search Invoice ID</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-                                className="px-4 py-2 border rounded-lg"
+                                type="text"
+                                placeholder="INV-20260116-001"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"
                             />
                         </div>
+                    </div>
 
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1">To Date</label>
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-                                className="px-4 py-2 border rounded-lg"
-                            />
-                        </div>
+                    {/* Status */}
+                    <div>
+                        <label className="block text-sm text-gray-600 mb-1">Status</label>
+                        <select
+                            value={status}
+                            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+                            className="w-full px-3 py-2 border rounded-lg bg-white text-sm"
+                        >
+                            <option value="">All</option>
+                            <option value="PAID">Paid</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
 
+                    {/* From Date */}
+                    <div>
+                        <label className="block text-sm text-gray-600 mb-1">From</label>
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+                            className="w-full px-3 py-2 border rounded-lg text-sm"
+                        />
+                    </div>
+
+                    {/* To Date */}
+                    <div>
+                        <label className="block text-sm text-gray-600 mb-1">To</label>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+                            className="w-full px-3 py-2 border rounded-lg text-sm"
+                        />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 items-end">
                         <button
                             onClick={handleSearch}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                         >
-                            <Search className="w-4 h-4" />
+                            Search
                         </button>
-
                         <button
                             onClick={clearFilters}
-                            className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                            className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm"
                         >
                             Clear
                         </button>
                     </div>
                 </div>
+            </div>
 
-                {/* Results Summary */}
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600">
-                        Showing {orders.length} of {total} transactions
-                    </p>
-                </div>
+            {/* Results Summary */}
+            <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-600">
+                    Showing {orders.length} of {total} transactions
+                </p>
+            </div>
 
-                {/* Transactions Table */}
-                <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                    <table className="w-full">
+            {/* Transactions Table - Scrollable on mobile */}
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden mb-6">
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Invoice ID</th>
@@ -310,30 +286,50 @@ export default function TransactionsPage() {
                         </tbody>
                     </table>
                 </div>
+            </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-2">
+            {/* Pagination - Responsive */}
+            {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
+                        {/* Previous Button */}
                         <button
                             onClick={() => setPage(p => Math.max(1, p - 1))}
                             disabled={page === 1}
-                            className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                            className="flex items-center gap-1 px-3 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
                         >
-                            Previous
+                            <ChevronLeft className="w-4 h-4" />
+                            <span className="hidden sm:inline">Previous</span>
                         </button>
-                        <span className="px-4 py-2 text-sm">
-                            Page {page} of {totalPages}
-                        </span>
+
+                        {/* Numbered Page Buttons */}
+                        <div className="flex items-center gap-1 flex-wrap justify-center">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => setPage(pageNum)}
+                                    className={`min-w-[36px] px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === pageNum
+                                            ? 'bg-blue-600 text-white'
+                                            : 'border hover:bg-gray-50 text-gray-700'
+                                        }`}
+                                >
+                                    {pageNum}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Next Button */}
                         <button
                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                             disabled={page === totalPages}
-                            className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                            className="flex items-center gap-1 px-3 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
                         >
-                            Next
+                            <span className="hidden sm:inline">Next</span>
+                            <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
-                )}
-            </main>
-        </div>
+                </div>
+            )}
+        </AdminLayout>
     );
 }
