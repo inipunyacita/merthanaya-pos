@@ -16,37 +16,23 @@ export default function Home() {
         </p>
 
         {/* Navigation Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {/* Runner Card */}
-          <Link href="/runner" className="group">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-6">
+          {/* POS Card - Main */}
+          <Link href="/pos" className="group md:col-span-2">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 hover:border-indigo-500/50 transition-all duration-300 hover:scale-105">
-              <div className="text-5xl mb-4">📱</div>
-              <h2 className="text-2xl font-bold text-white mb-2">Runner</h2>
+              <div className="text-5xl mb-4">🛒</div>
+              <h2 className="text-2xl font-bold text-white mb-2">POS System</h2>
               <p className="text-gray-400 text-sm">
-                Tablet interface for mobile staff to input items and generate tickets
+                Unified point-of-sale: Browse products, manage cart, and process orders in one place
               </p>
               <div className="mt-4 text-indigo-400 group-hover:text-indigo-300 font-medium">
-                Open App →
-              </div>
-            </div>
-          </Link>
-
-          {/* Cashier Card */}
-          <Link href="/cashier" className="group">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105">
-              <div className="text-5xl mb-4">💳</div>
-              <h2 className="text-2xl font-bold text-white mb-2">Cashier</h2>
-              <p className="text-gray-400 text-sm">
-                Desktop dashboard to view pending orders and process payments
-              </p>
-              <div className="mt-4 text-emerald-400 group-hover:text-emerald-300 font-medium">
-                Open Dashboard →
+                Open POS →
               </div>
             </div>
           </Link>
 
           {/* Admin Card */}
-          <Link href="/admin/products" className="group">
+          <Link href="/admin/products" className="group md:col-span-2">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
               <div className="text-5xl mb-4">⚙️</div>
               <h2 className="text-2xl font-bold text-white mb-2">Admin</h2>
@@ -59,6 +45,7 @@ export default function Home() {
             </div>
           </Link>
         </div>
+
 
         {/* Footer */}
         <footer className="mt-16 text-sm text-gray-500">

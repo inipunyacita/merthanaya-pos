@@ -128,7 +128,7 @@ export default function TransactionsPage() {
 
     return (
         <AdminLayout title="📋 Transaction History" description="View and export all orders">
-            <Toaster position="top-right" richColors />
+            <Toaster position="top-right" richColors expand visibleToasts={5} />
 
             {/* Controls - Responsive */}
             <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -309,8 +309,8 @@ export default function TransactionsPage() {
                                     key={pageNum}
                                     onClick={() => setPage(pageNum)}
                                     className={`min-w-[36px] px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === pageNum
-                                            ? 'bg-blue-600 text-white'
-                                            : 'border hover:bg-gray-50 text-gray-700'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'border hover:bg-gray-50 text-gray-700'
                                         }`}
                                 >
                                     {pageNum}

@@ -89,7 +89,7 @@ export default function InventoryPage() {
 
     return (
         <AdminLayout title="📦 Inventory Management" description="Monitor stock levels and make adjustments">
-            <Toaster position="top-right" richColors />
+            <Toaster position="top-right" richColors expand visibleToasts={5} />
 
             {/* Controls - Responsive */}
             <div className="flex flex-wrap items-center gap-3 mb-6">

@@ -95,13 +95,20 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (scannerRef.current) {
-                if (scannerRef.current.isScanning) {
-                    scannerRef.current.stop().catch(console.error);
+            const cleanup = async () => {
+                if (scannerRef.current) {
+                    try {
+                        if (scannerRef.current.isScanning) {
+                            await scannerRef.current.stop();
+                        }
+                        scannerRef.current.clear();
+                    } catch (err) {
+                        console.error('Error during scanner cleanup:', err);
+                    }
+                    scannerRef.current = null;
                 }
-                scannerRef.current.clear();
-                scannerRef.current = null;
-            }
+            };
+            cleanup();
         };
     }, []);
 
@@ -169,8 +176,8 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
         setSelectedCamera(cameraId);
     };
 
-    const handleClose = () => {
-        stopScanning();
+    const handleClose = async () => {
+        await stopScanning();
         onClose?.();
     };
 

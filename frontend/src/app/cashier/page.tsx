@@ -245,7 +245,7 @@ export default function CashierPage() {
 
     return (
         <div className="min-h-screen bg-linear-to-br from-slate-50 via-emerald-50 to-white">
-            <Toaster richColors position="top-right" />
+            <Toaster richColors position="top-right" expand visibleToasts={5} />
 
             {/* Mobile Header */}
             <header className="lg:hidden border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shadow-sm">

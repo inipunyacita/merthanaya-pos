@@ -265,7 +265,7 @@ export default function ProductsPage() {
 
     return (
         <AdminLayout title="📦 Products" description="Manage your product inventory">
-            <Toaster richColors position="top-right" closeButton />
+            <Toaster richColors position="top-right" closeButton expand visibleToasts={5} />
             {/* Controls */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="flex-1">

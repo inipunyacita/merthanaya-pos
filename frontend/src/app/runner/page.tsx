@@ -46,6 +46,8 @@ export default function RunnerPage() {
     const [quantityDialogOpen, setQuantityDialogOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [quantity, setQuantity] = useState<string>('1');
+    const [quantityInputMode, setQuantityInputMode] = useState<'weight' | 'nominal'>('weight');
+    const [nominalAmount, setNominalAmount] = useState<string>('');
 
     // Scanner dialog state
     const [scannerDialogOpen, setScannerDialogOpen] = useState(false);
@@ -133,6 +135,8 @@ export default function RunnerPage() {
             // Open quantity dialog for weight-based items
             setSelectedProduct(product);
             setQuantity('0.5');
+            setNominalAmount('');
+            setQuantityInputMode('weight');
             setQuantityDialogOpen(true);
         } else {
             // Add 1 item directly for item-based products
@@ -141,11 +145,27 @@ export default function RunnerPage() {
     };
 
     const handleQuantitySubmit = () => {
-        if (selectedProduct && parseFloat(quantity) > 0) {
-            addToCart(selectedProduct, parseFloat(quantity));
+        if (!selectedProduct) return;
+
+        let qty = 0;
+        if (quantityInputMode === 'weight') {
+            qty = parseFloat(quantity);
+        } else {
+            // Calculate weight from nominal amount
+            const nominal = parseFloat(nominalAmount);
+            if (nominal > 0 && selectedProduct.price > 0) {
+                qty = nominal / selectedProduct.price;
+                // Round to 2 decimal places
+                qty = Math.round(qty * 100) / 100;
+            }
+        }
+
+        if (qty > 0) {
+            addToCart(selectedProduct, qty);
             setQuantityDialogOpen(false);
             setSelectedProduct(null);
             setQuantity('1');
+            setNominalAmount('');
         }
     };
 
@@ -238,7 +258,7 @@ export default function RunnerPage() {
 
     return (
         <div className="min-h-screen bg-linear-to-br from-slate-50 via-indigo-50 to-white">
-            <Toaster richColors position="top-center" />
+            <Toaster richColors position="top-center" expand visibleToasts={5} />
 
             {/* Header */}
             <header className="border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
@@ -643,25 +663,72 @@ export default function RunnerPage() {
 
             {/* Quantity Dialog */}
             <Dialog open={quantityDialogOpen} onOpenChange={setQuantityDialogOpen}>
-                <DialogContent className="max-w-[90vw] sm:max-w-[400px] bg-white border-slate-200 shadow-xl">
+                <DialogContent className="max-w-[90vw] sm:max-w-[420px] bg-white border-slate-200 shadow-xl">
                     <DialogHeader>
                         <DialogTitle className="text-slate-800">Enter Quantity</DialogTitle>
                         <DialogDescription className="text-slate-500">
                             {selectedProduct?.name} - {formatPrice(selectedProduct?.price || 0)}/kg
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="quantity" className="text-slate-700">Weight (kg)</Label>
-                        <Input
-                            id="quantity"
-                            type="number"
-                            min="0.1"
-                            step="0.1"
-                            value={quantity}
-                            onChange={(e) => setQuantity(e.target.value)}
-                            className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-2xl focus:border-indigo-500 focus:ring-indigo-500"
-                            autoFocus
-                        />
+                    <div className="py-4 space-y-4">
+                        {/* Mode Toggle */}
+                        <div className="flex gap-2">
+                            <Button
+                                variant={quantityInputMode === 'weight' ? 'default' : 'outline'}
+                                onClick={() => setQuantityInputMode('weight')}
+                                className={`flex-1 ${quantityInputMode === 'weight' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Berdasarkan Berat
+                            </Button>
+                            <Button
+                                variant={quantityInputMode === 'nominal' ? 'default' : 'outline'}
+                                onClick={() => setQuantityInputMode('nominal')}
+                                className={`flex-1 ${quantityInputMode === 'nominal' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Berdasarkan Nominal
+                            </Button>
+                        </div>
+
+                        {/* Conditional Input */}
+                        {quantityInputMode === 'weight' ? (
+                            <div>
+                                <Label htmlFor="quantity" className="text-slate-700">Berat (kg)</Label>
+                                <Input
+                                    id="quantity"
+                                    type="number"
+                                    min="0.1"
+                                    step="0.1"
+                                    value={quantity}
+                                    onChange={(e) => setQuantity(e.target.value)}
+                                    className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-2xl focus:border-indigo-500 focus:ring-indigo-500"
+                                    autoFocus
+                                />
+                            </div>
+                        ) : (
+                            <div>
+                                <Label htmlFor="nominal" className="text-slate-700">Nominal (Rp)</Label>
+                                <Input
+                                    id="nominal"
+                                    type="number"
+                                    min="100"
+                                    step="100"
+                                    value={nominalAmount}
+                                    onChange={(e) => setNominalAmount(e.target.value)}
+                                    placeholder="Masukkan jumlah uang"
+                                    className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-2xl focus:border-indigo-500 focus:ring-indigo-500"
+                                    autoFocus
+                                />
+                                {/* Preview calculation */}
+                                {nominalAmount && parseFloat(nominalAmount) > 0 && selectedProduct && (
+                                    <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="text-sm text-slate-600">Estimasi berat:</div>
+                                        <div className="text-xl font-bold text-indigo-600">
+                                            {(parseFloat(nominalAmount) / selectedProduct.price).toFixed(2)} kg
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <DialogFooter className="flex-col sm:flex-row gap-2">
                         <Button variant="outline" onClick={() => setQuantityDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
@@ -758,11 +825,13 @@ export default function RunnerPage() {
                             Point your camera at a product barcode to add it to cart
                         </DialogDescription>
                     </DialogHeader>
-                    <BarcodeScanner
-                        onScanSuccess={handleBarcodeScan}
-                        onClose={() => setScannerDialogOpen(false)}
-                        autoStart
-                    />
+                    {scannerDialogOpen && (
+                        <BarcodeScanner
+                            onScanSuccess={handleBarcodeScan}
+                            onClose={() => setScannerDialogOpen(false)}
+                            autoStart
+                        />
+                    )}
                 </DialogContent>
             </Dialog>
         </div>
