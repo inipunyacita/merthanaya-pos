@@ -381,7 +381,7 @@ export default function POSPage() {
                         </button>
 
                         <div className="flex items-center gap-2">
-                            <img src="/favicon.svg" className="w-6 h-6" alt="" />
+                            <img src="/merthanayalogo.svg" className="w-12 h-12" alt="" />
                             <h1 className="text-lg sm:text-xl font-bold text-slate-800 shrink-0">POS</h1>
                         </div>
 
