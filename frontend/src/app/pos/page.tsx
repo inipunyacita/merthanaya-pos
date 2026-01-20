@@ -376,12 +376,12 @@ export default function POSPage() {
                 <div className="px-4 py-3">
                     <div className="flex items-center justify-between gap-2 sm:gap-4">
                         {/* Mobile Menu Button */}
-                        <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
+                        <button onClick={() => setSidebarOpen(true)} className="xl:hidden p-2 hover:bg-gray-100 rounded-lg">
                             <Menu className="w-5 h-5" />
                         </button>
 
                         <div className="flex items-center gap-2">
-                            <img src="/merthanayalogo.svg" className="w-12 h-12" alt="" />
+                            <img src="/merthanayafix.svg" className="w-24 h-12" alt="" />
                             <h1 className="text-lg sm:text-xl font-bold text-slate-800 shrink-0">POS</h1>
                         </div>
 
@@ -407,7 +407,7 @@ export default function POSPage() {
 
                         {/* Mobile Cart Button */}
                         <Button variant="outline" size="sm" onClick={() => setCartOpen(true)}
-                            className="lg:hidden relative border-slate-300 text-slate-700 bg-white hover:bg-indigo-50">
+                            className="xl:hidden relative border-slate-300 text-slate-700 bg-white hover:bg-indigo-50">
                             <ShoppingCart className="h-4 w-4" />
                             {cart.length > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -430,12 +430,12 @@ export default function POSPage() {
             </header>
 
             {/* Mobile Sidebar Overlay */}
-            {sidebarOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-50" onClick={() => setSidebarOpen(false)} />}
+            {sidebarOpen && <div className="xl:hidden fixed inset-0 bg-black/50 z-50" onClick={() => setSidebarOpen(false)} />}
 
             <div className="flex h-[calc(100vh-60px)]">
                 {/* Left Sidebar */}
-                <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-56 bg-white border-r border-slate-200 flex flex-col shadow-sm transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                    <div className="p-4 border-b border-slate-200 flex items-center justify-between lg:hidden">
+                <aside className={`fixed xl:static inset-y-0 left-0 z-50 w-56 bg-white border-r border-slate-200 flex flex-col shadow-sm transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}`}>
+                    <div className="p-4 border-b border-slate-200 flex items-center justify-between xl:hidden">
                         <h1 className="text-xl font-bold text-slate-800">Menu</h1>
                         <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                             <X className="w-5 h-5" />
@@ -647,7 +647,7 @@ export default function POSPage() {
                 </main>
 
                 {/* Right Sidebar - Cart (Desktop) */}
-                <aside className="hidden lg:flex w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex-col shadow-lg h-full overflow-hidden">
+                <aside className="hidden xl:flex w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex-col shadow-lg h-full overflow-hidden">
                     <div className="p-4 border-b border-slate-200 shrink-0">
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
@@ -697,10 +697,10 @@ export default function POSPage() {
             </div>
 
             {/* Mobile Cart Overlay */}
-            {cartOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-50" onClick={() => setCartOpen(false)} />}
+            {cartOpen && <div className="xl:hidden fixed inset-0 bg-black/50 z-50" onClick={() => setCartOpen(false)} />}
 
             {/* Mobile Cart Sheet */}
-            <div className={`lg:hidden fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl transform transition-transform duration-300 flex flex-col ${cartOpen ? 'translate-y-0' : 'translate-y-full'}`} style={{ maxHeight: '75vh' }}>
+            <div className={`xl:hidden fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl transform transition-transform duration-300 flex flex-col ${cartOpen ? 'translate-y-0' : 'translate-y-full'}`} style={{ maxHeight: '75vh' }}>
                 <div className="p-4 border-b border-slate-200 flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-slate-800">Cart ({cart.length})</h2>
                     <div className="flex items-center gap-2">
