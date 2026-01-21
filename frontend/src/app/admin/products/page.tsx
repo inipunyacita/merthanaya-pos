@@ -460,8 +460,8 @@ export default function ProductsPage() {
             </div>
 
             {/* Products Table */}
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <Table>
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
+                <Table className="min-w-[600px]">
                     <TableHeader>
                         <TableRow className="border-gray-200 bg-gray-50 hover:bg-gray-100">
                             <TableHead className="text-gray-700 font-semibold">Code</TableHead>
@@ -492,17 +492,8 @@ export default function ProductsPage() {
                                     <TableCell className="text-gray-500 font-mono text-sm">
                                         {product.barcode || '—'}
                                     </TableCell>
-                                    <TableCell className="font-medium text-gray-900">
-                                        <div className="flex items-center gap-3">
-                                            {product.image_url && (
-                                                <img
-                                                    src={product.image_url}
-                                                    alt={product.name}
-                                                    className="w-10 h-10 rounded-lg object-cover"
-                                                />
-                                            )}
-                                            {product.name}
-                                        </div>
+                                    <TableCell className="font-medium text-gray-900 whitespace-normal min-w-[150px] px-4">
+                                        <p className="font-medium">{product.name}</p>
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className="border-purple-500 text-purple-600">

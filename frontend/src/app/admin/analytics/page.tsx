@@ -201,29 +201,56 @@ export default function AnalyticsPage() {
                 {/* Category Breakdown */}
                 <div className="bg-white rounded-xl shadow-sm p-6 border">
                     <h3 className="text-lg font-semibold mb-4">🥧 Sales by Category</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={categoryData as unknown as Record<string, unknown>[]}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={50}
-                                    outerRadius={80}
-                                    paddingAngle={2}
-                                    dataKey="revenue"
-                                    nameKey="category"
-                                    label={({ name, payload }) => `${name} ${payload?.percentage ?? 0}%`}
-                                    labelLine={false}
-                                >
-                                    {categoryData.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {categoryData.length === 0 ? (
+                        <div className="h-64 flex items-center justify-center">
+                            <p className="text-gray-500">No sales data available</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={categoryData as unknown as Record<string, unknown>[]}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={40}
+                                            outerRadius={70}
+                                            paddingAngle={2}
+                                            dataKey="revenue"
+                                            nameKey="category"
+                                        >
+                                            {categoryData.map((_, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(value) => formatCurrency(Number(value))}
+                                            labelFormatter={(label) => String(label)}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {/* Category Legend */}
+                            <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">
+                                {categoryData.map((cat, index) => (
+                                    <div key={cat.category} className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="w-3 h-3 rounded-full"
+                                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                                            />
+                                            <span className="text-gray-700">{cat.category}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="font-medium text-gray-900">{formatCurrency(cat.revenue)}</span>
+                                            <span className="text-gray-500 ml-2">({cat.percentage}%)</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -259,23 +286,26 @@ export default function AnalyticsPage() {
                             <p className="text-gray-500 text-center py-4">No data available</p>
                         ) : (
                             topProducts.map((product, index) => (
-                                <div key={product.product_id} className="flex items-center justify-between py-2 border-b last:border-0">
-                                    <div className="flex items-center gap-3">
-                                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                index === 1 ? 'bg-gray-100 text-gray-700' :
-                                                    index === 2 ? 'bg-orange-100 text-orange-700' :
-                                                        'bg-gray-50 text-gray-500'
-                                            }`}>
-                                            {index + 1}
-                                        </span>
-                                        <div>
-                                            <p className="font-medium text-sm">{product.product_name}</p>
-                                            <p className="text-xs text-gray-500">{product.category}</p>
-                                        </div>
+                                <div key={product.product_id} className="flex items-start gap-3 py-2 border-b last:border-0">
+                                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                                        index === 1 ? 'bg-gray-100 text-gray-700' :
+                                            index === 2 ? 'bg-orange-100 text-orange-700' :
+                                                'bg-gray-50 text-gray-500'
+                                        }`}>
+                                        {index + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-sm wrap-break-word">{product.product_name}</p>
+                                        <p className="text-xs text-gray-500">{product.category}</p>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-right shrink-0">
                                         <p className="font-semibold text-sm">{formatCurrency(product.revenue)}</p>
-                                        <p className="text-xs text-gray-500">{product.units_sold} sold</p>
+                                        <p className="text-xs text-gray-500">
+                                            {product.unit_type === 'weight'
+                                                ? `${product.units_sold} kg`
+                                                : `${Math.floor(product.units_sold)} sold`
+                                            }
+                                        </p>
                                     </div>
                                 </div>
                             ))

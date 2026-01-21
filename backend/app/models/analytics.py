@@ -22,6 +22,7 @@ class TopProduct(BaseModel):
     category: str
     units_sold: Decimal
     revenue: Decimal
+    unit_type: str = "item"
 
 
 class CategorySales(BaseModel):

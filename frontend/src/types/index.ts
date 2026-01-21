@@ -134,6 +134,7 @@ export interface TopProduct {
     category: string;
     units_sold: number;
     revenue: number;
+    unit_type: string;
 }
 
 export interface TopProductsResponse {

@@ -153,7 +153,7 @@ async def get_top_products(
         
         # Get product details
         products_result = db.table("products").select(
-            "id, name, category"
+            "id, name, category, unit_type"
         ).in_("id", product_ids).execute()
         
         product_info = {p["id"]: p for p in products_result.data or []}
@@ -167,7 +167,8 @@ async def get_top_products(
                     product_name=info["name"],
                     category=info["category"],
                     units_sold=stats["units_sold"],
-                    revenue=stats["revenue"]
+                    revenue=stats["revenue"],
+                    unit_type=info.get("unit_type", "item")
                 ))
         
         return TopProductsResponse(
