@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import products_router, orders_router, analytics_router, inventory_router
+from app.routers import products_router, orders_router, analytics_router, inventory_router, auth_router, users_router
 
 app = FastAPI(
     title="Merthanaya POS API",
@@ -16,7 +16,9 @@ app.add_middleware(
         "http://localhost:3000",      # Next.js dev server
         "http://127.0.0.1:3000",
         "http://localhost:3001",      # Alternative port
-        "https://merthanayastaging.cakatech.cloud"
+        "https://merthanayastaging.cakatech.cloud",
+        "https://antigravity.cakatech.cloud",      # Cloudflare Tunnel (frontend)
+        "https://api-antigravity.cakatech.cloud",  # Cloudflare Tunnel (backend)
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -24,6 +26,8 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(products_router)
 app.include_router(orders_router)
 app.include_router(analytics_router)

@@ -16,7 +16,11 @@ import {
     LowStockResponse,
     StockAdjustment,
     StockAdjustmentResponse,
+    User,
+    UserCreate,
+    UserUpdate,
 } from '@/types';
+import { getAccessToken } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -25,6 +29,15 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+});
+
+// Add auth token to requests
+api.interceptors.request.use(async (config) => {
+    const token = await getAccessToken();
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 });
 
 // Product API
@@ -146,6 +159,39 @@ export const inventoryApi = {
 
     adjustStock: async (adjustment: StockAdjustment) => {
         const response = await api.post<StockAdjustmentResponse>('/inventory/adjust', adjustment);
+        return response.data;
+    },
+};
+
+// Users API (Admin only)
+export const usersApi = {
+    list: async (params?: { role?: string; is_active?: boolean; skip?: number; limit?: number }) => {
+        const response = await api.get<User[]>('/users/', { params });
+        return response.data;
+    },
+
+    get: async (id: string) => {
+        const response = await api.get<User>(`/users/${id}`);
+        return response.data;
+    },
+
+    create: async (user: UserCreate) => {
+        const response = await api.post<User>('/users/', user);
+        return response.data;
+    },
+
+    update: async (id: string, user: UserUpdate) => {
+        const response = await api.put<User>(`/users/${id}`, user);
+        return response.data;
+    },
+
+    delete: async (id: string, hardDelete = false) => {
+        const response = await api.delete(`/users/${id}`, { params: { hard_delete: hardDelete } });
+        return response.data;
+    },
+
+    reactivate: async (id: string) => {
+        const response = await api.post<User>(`/users/${id}/reactivate`);
         return response.data;
     },
 };

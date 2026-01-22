@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     ChevronLeft, ChevronRight, ChevronDown, ScanLine, Printer,
-    ShoppingCart, X, Menu, ClipboardList, CheckCircle, Package
+    ShoppingCart, X, Menu, ClipboardList, CheckCircle, Package,
+    Plus, Pencil, Power, PowerOff, Trash2
 } from 'lucide-react';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { Button } from '@/components/ui/button';
@@ -20,11 +21,15 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Toaster, toast } from 'sonner';
-import { Product, CartItem, OrderSummary, Order, PRODUCT_CATEGORIES } from '@/types';
+import { Product, ProductCreate, ProductUpdate, CartItem, OrderSummary, Order, PRODUCT_CATEGORIES } from '@/types';
 import { productApi, orderApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
+import { Switch } from '@/components/ui/switch';
+import {
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 
-type ViewType = 'products' | 'pending' | 'success';
+type ViewType = 'products' | 'pending' | 'success' | 'manageproduct';
 
 export default function POSPage() {
     // === VIEW STATE ===
@@ -77,6 +82,30 @@ export default function POSPage() {
 
     const ORDER_PAGE_SIZE = 6;
 
+    // === SEARCH STATE ===
+    const [pendingSearch, setPendingSearch] = useState('');
+    const [successSearch, setSuccessSearch] = useState('');
+    const [manageSearch, setManageSearch] = useState('');
+
+    // === MANAGE PRODUCT STATE ===
+    const [managedProducts, setManagedProducts] = useState<Product[]>([]);
+    const [productDialogOpen, setProductDialogOpen] = useState(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [productPage, setProductPage] = useState(1);
+    const [totalManagedProducts, setTotalManagedProducts] = useState(0);
+    const MANAGE_PAGE_SIZE = 8;
+    const [formData, setFormData] = useState<ProductCreate>({
+        name: '',
+        category: 'Sembako',
+        price: 0,
+        stock: 0,
+        barcode: null,
+        image_url: null,
+        unit_type: 'item',
+        is_active: true,
+    });
+    const [productScannerOpen, setProductScannerOpen] = useState(false);
+
     // === FETCH FUNCTIONS ===
     const fetchProducts = useCallback(async () => {
         try {
@@ -126,12 +155,33 @@ export default function POSPage() {
         }
     }, [paidPage]);
 
+    const fetchManagedProducts = useCallback(async () => {
+        try {
+            setLoading(true);
+            const params: { page?: number; page_size?: number; active_only?: boolean; search?: string } = {
+                page: productPage,
+                page_size: MANAGE_PAGE_SIZE,
+                active_only: false,
+            };
+            if (manageSearch) params.search = manageSearch;
+            const response = await productApi.list(params);
+            setManagedProducts(response.products);
+            setTotalManagedProducts(response.total);
+        } catch (error) {
+            console.error('Failed to fetch managed products:', error);
+            toast.error('Failed to load products');
+        } finally {
+            setLoading(false);
+        }
+    }, [productPage, manageSearch]);
+
     // === EFFECTS ===
     useEffect(() => {
         if (activeView === 'products') fetchProducts();
         else if (activeView === 'pending') fetchPendingOrders();
-        else fetchPaidOrders();
-    }, [activeView, fetchProducts, fetchPendingOrders, fetchPaidOrders]);
+        else if (activeView === 'success') fetchPaidOrders();
+        else if (activeView === 'manageproduct') fetchManagedProducts();
+    }, [activeView, fetchProducts, fetchPendingOrders, fetchPaidOrders, fetchManagedProducts]);
 
     // Realtime subscription for orders
     useEffect(() => {
@@ -351,20 +401,157 @@ export default function POSPage() {
     };
 
     // === HELPER FUNCTIONS ===
-    const formatPrice = (price: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(price);
+    // Manual formatting to avoid hydration mismatch between server/client
+    const formatPrice = (price: number) => {
+        const rounded = Math.round(price);
+        const formatted = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return `Rp ${formatted}`;
+    };
     const formatTime = (dateString: string) => new Date(dateString).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const formatDateTime = (dateString: string) => new Date(dateString).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
 
+    // Smart date formatting for pending orders
+    const formatSmartDate = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        const orderDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const time = formatTime(dateString);
+
+        if (orderDate.getTime() === today.getTime()) {
+            return `Created Today at ${time}`;
+        } else if (orderDate.getTime() === yesterday.getTime()) {
+            return `Created Yesterday at ${time}`;
+        } else {
+            return `Created at ${date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${time}`;
+        }
+    };
+
     const pendingTotalPages = Math.ceil(pendingOrders.length / ORDER_PAGE_SIZE);
-    const paginatedPendingOrders = pendingOrders.slice((pendingPage - 1) * ORDER_PAGE_SIZE, pendingPage * ORDER_PAGE_SIZE);
+
+    // Filter and sort pending orders by search (newest first)
+    const filteredPendingOrders = pendingOrders
+        .filter(order =>
+            !pendingSearch ||
+            order.short_id.toLowerCase().includes(pendingSearch.toLowerCase()) ||
+            order.invoice_id?.toLowerCase().includes(pendingSearch.toLowerCase())
+        )
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const paginatedPendingOrders = filteredPendingOrders.slice((pendingPage - 1) * ORDER_PAGE_SIZE, pendingPage * ORDER_PAGE_SIZE);
+
+    // Filter and sort paid orders by search (newest first)
+    const filteredPaidOrders = paidOrders
+        .filter(order =>
+            !successSearch ||
+            order.short_id.toLowerCase().includes(successSearch.toLowerCase()) ||
+            order.invoice_id?.toLowerCase().includes(successSearch.toLowerCase())
+        )
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const managedTotalPages = Math.ceil(totalManagedProducts / MANAGE_PAGE_SIZE);
 
     const handleViewChange = (view: ViewType) => {
         setActiveView(view);
         if (view === 'pending') setPendingPage(1);
         else if (view === 'success') setPaidPage(1);
+        else if (view === 'manageproduct') setProductPage(1);
         else setCurrentPage(1);
         setSidebarOpen(false);
     };
+
+    // === PRODUCT MANAGEMENT FUNCTIONS ===
+    const resetProductForm = () => {
+        setFormData({
+            name: '',
+            category: 'Sembako',
+            price: 0,
+            stock: 0,
+            barcode: null,
+            image_url: null,
+            unit_type: 'item',
+            is_active: true,
+        });
+        setEditingProduct(null);
+    };
+
+    const openProductDialog = (product?: Product) => {
+        if (product) {
+            setEditingProduct(product);
+            setFormData({
+                name: product.name,
+                category: product.category,
+                price: product.price,
+                stock: product.stock,
+                barcode: product.barcode,
+                image_url: product.image_url,
+                unit_type: product.unit_type,
+                is_active: product.is_active,
+            });
+        } else {
+            resetProductForm();
+        }
+        setProductDialogOpen(true);
+    };
+
+    const handleProductSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            if (editingProduct) {
+                const updateData: ProductUpdate = { ...formData };
+                await productApi.update(editingProduct.id, updateData);
+                toast.success('Product Updated', { description: `"${formData.name}" updated successfully` });
+            } else {
+                await productApi.create(formData);
+                toast.success('Product Created', { description: `"${formData.name}" added to inventory` });
+            }
+            setProductDialogOpen(false);
+            resetProductForm();
+            fetchManagedProducts();
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } };
+            toast.error(err.response?.data?.detail || 'Failed to save product');
+        }
+    };
+
+    const handleDeactivateProduct = async (product: Product) => {
+        if (!confirm(`Deactivate "${product.name}"?`)) return;
+        try {
+            await productApi.delete(product.id);
+            toast.success('Product Deactivated');
+            fetchManagedProducts();
+        } catch (error) {
+            console.error('Failed to deactivate:', error);
+            toast.error('Failed to deactivate product');
+        }
+    };
+
+    const handleReactivateProduct = async (product: Product) => {
+        if (!confirm(`Reactivate "${product.name}"?`)) return;
+        try {
+            await productApi.update(product.id, { is_active: true });
+            toast.success('Product Reactivated');
+            fetchManagedProducts();
+        } catch (error) {
+            console.error('Failed to reactivate:', error);
+            toast.error('Failed to reactivate product');
+        }
+    };
+
+    const handleDeleteProduct = async (product: Product) => {
+        if (!confirm(`Permanently delete "${product.name}"? This cannot be undone.`)) return;
+        try {
+            await productApi.delete(product.id, true);
+            toast.success('Product Deleted');
+            fetchManagedProducts();
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } };
+            toast.error(err.response?.data?.detail || 'Failed to delete product');
+        }
+    };
+
+    const showBarcode = ['Sembako', 'Daging', 'Canang', 'Sayur', 'Buah', 'Jajan', 'Minuman'].includes(formData.category);
+    const showWeightUnit = ['Sembako', 'Daging', 'Sayur', 'Buah'].includes(formData.category);
 
     // Continue in next part - JSX return
     return (
@@ -442,13 +629,14 @@ export default function POSPage() {
                         </button>
                     </div>
                     <nav className="flex-1 p-3 space-y-1">
+                        <label htmlFor="" className='w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all text-slate-600 hover:bg-slate-100'>Order</label>
                         <button onClick={() => handleViewChange('products')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${activeView === 'products' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'products' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
                             <Package className="h-5 w-5" />
-                            <span className="flex-1">Products</span>
+                            <span className="flex-1">New Order</span>
                         </button>
                         <button onClick={() => handleViewChange('pending')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${activeView === 'pending' ? 'bg-yellow-100 text-yellow-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'pending' ? 'bg-yellow-100 text-yellow-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
                             <ClipboardList className="h-5 w-5" />
                             <span className="flex-1">Pending</span>
                             {pendingOrders.length > 0 && (
@@ -456,12 +644,19 @@ export default function POSPage() {
                             )}
                         </button>
                         <button onClick={() => handleViewChange('success')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${activeView === 'success' ? 'bg-green-100 text-green-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'success' ? 'bg-green-100 text-green-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
                             <CheckCircle className="h-5 w-5" />
                             <span className="flex-1">Success</span>
                             {totalPaidOrders > 0 && (
                                 <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">{totalPaidOrders}</Badge>
                             )}
+                        </button>
+                        <hr className='my-3' />
+                        <label htmlFor="" className='w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all text-slate-600 hover:bg-slate-100'>Product</label>
+                        <button onClick={() => handleViewChange('manageproduct')}
+                            className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'manageproduct' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            <Package className="h-5 w-5" />
+                            <span className="flex-1">Manage Product</span>
                         </button>
                     </nav>
                     <div className="p-3 border-t border-slate-200">
@@ -540,9 +735,17 @@ export default function POSPage() {
 
                     {activeView === 'pending' && (
                         <>
-                            <div className="mb-4">
-                                <h2 className="text-xl font-bold text-slate-800">📋 Pending Orders</h2>
-                                <p className="text-sm text-slate-500">{pendingOrders.length} pending order{pendingOrders.length !== 1 ? 's' : ''}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">📋 Pending Orders</h2>
+                                    <p className="text-sm text-slate-500">{filteredPendingOrders.length} pending order{filteredPendingOrders.length !== 1 ? 's' : ''}</p>
+                                </div>
+                                <Input
+                                    placeholder="Search by order ID..."
+                                    value={pendingSearch}
+                                    onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1); }}
+                                    className="w-full sm:w-48 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
+                                />
                             </div>
                             {loading ? (
                                 <div className="flex items-center justify-center h-64 text-slate-500">Loading orders...</div>
@@ -553,7 +756,7 @@ export default function POSPage() {
                                     <p className="text-sm">Orders will appear here in real-time</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                                     {paginatedPendingOrders.map((order) => (
                                         <Card key={order.id} className="bg-white border-slate-200 hover:border-yellow-300 hover:shadow-lg hover:shadow-yellow-100 transition-all duration-200 cursor-pointer" onClick={() => handleViewDetails(order.id)}>
                                             <CardHeader className="pb-2 p-3 sm:p-6">
@@ -570,7 +773,7 @@ export default function POSPage() {
                                                 <div className="text-sm text-slate-500">{order.item_count} item{order.item_count !== 1 ? 's' : ''}</div>
                                             </CardContent>
                                             <CardFooter className="pt-2 border-t border-slate-200 p-3 sm:p-6">
-                                                <div className="text-xs text-slate-400">Created at {formatTime(order.created_at)}</div>
+                                                <div className="text-xs text-slate-400">{formatSmartDate(order.created_at)}</div>
                                             </CardFooter>
                                         </Card>
                                     ))}
@@ -592,21 +795,29 @@ export default function POSPage() {
 
                     {activeView === 'success' && (
                         <>
-                            <div className="mb-4">
-                                <h2 className="text-xl font-bold text-slate-800">✅ Success Orders</h2>
-                                <p className="text-sm text-slate-500">{totalPaidOrders} completed order{totalPaidOrders !== 1 ? 's' : ''}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">✅ Success Orders</h2>
+                                    <p className="text-sm text-slate-500">{filteredPaidOrders.length} completed order{filteredPaidOrders.length !== 1 ? 's' : ''}</p>
+                                </div>
+                                <Input
+                                    placeholder="Search by order ID..."
+                                    value={successSearch}
+                                    onChange={(e) => { setSuccessSearch(e.target.value); setPaidPage(1); }}
+                                    className="w-full sm:w-48 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
+                                />
                             </div>
                             {loading ? (
                                 <div className="flex items-center justify-center h-64 text-slate-500">Loading orders...</div>
-                            ) : paidOrders.length === 0 ? (
+                            ) : filteredPaidOrders.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-64 text-slate-500">
                                     <span className="text-6xl mb-4">📋</span>
                                     <p className="text-xl">No completed orders</p>
                                     <p className="text-sm">Completed orders will appear here</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                                    {paidOrders.map((order) => (
+                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                    {filteredPaidOrders.map((order) => (
                                         <Card key={order.id} className="bg-white border-slate-200 hover:border-green-300 hover:shadow-lg hover:shadow-green-100 transition-all duration-200">
                                             <CardHeader className="pb-2 p-3 sm:p-6">
                                                 <div className="flex items-center justify-between">
@@ -638,6 +849,111 @@ export default function POSPage() {
                                     </Button>
                                     <span className="text-sm text-slate-600">{paidPage} / {totalPaidPages}</span>
                                     <Button variant="outline" size="sm" onClick={() => setPaidPage((prev) => Math.min(totalPaidPages, prev + 1))} disabled={paidPage >= totalPaidPages} className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
+                                        <span className="hidden sm:inline mr-1">Next</span><ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {activeView === 'manageproduct' && (
+                        <>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">📦 Manage Products</h2>
+                                    <p className="text-sm text-slate-500">{totalManagedProducts} product{totalManagedProducts !== 1 ? 's' : ''}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Search products..."
+                                        value={manageSearch}
+                                        onChange={(e) => { setManageSearch(e.target.value); setProductPage(1); }}
+                                        className="w-full sm:w-48 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
+                                    />
+                                    <Button onClick={() => openProductDialog()} className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
+                                        <Plus className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Add</span>
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Products Table */}
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+                                <Table className="min-w-[600px]">
+                                    <TableHeader>
+                                        <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-100">
+                                            <TableHead className="text-slate-700 font-semibold">Code</TableHead>
+                                            <TableHead className="text-slate-700 font-semibold">Name</TableHead>
+                                            <TableHead className="text-slate-700 font-semibold">Category</TableHead>
+                                            <TableHead className="text-slate-700 font-semibold">Price</TableHead>
+                                            <TableHead className="text-slate-700 font-semibold">Stock</TableHead>
+                                            <TableHead className="text-slate-700 font-semibold">Status</TableHead>
+                                            <TableHead className="text-slate-700 font-semibold text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8 text-slate-500">Loading products...</TableCell>
+                                            </TableRow>
+                                        ) : managedProducts.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8 text-slate-500">No products found. Add your first product!</TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            managedProducts.map((product) => (
+                                                <TableRow key={product.id} className="border-slate-200 hover:bg-slate-50">
+                                                    <TableCell className="text-slate-500 font-mono text-sm">{product.barcode || '—'}</TableCell>
+                                                    <TableCell className="font-medium text-slate-900 whitespace-normal min-w-[150px] px-4">
+                                                        <p className="font-medium">{product.name}</p>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline" className="border-indigo-500 text-indigo-600">{product.category}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-green-600 font-mono">
+                                                        {formatPrice(product.price)}
+                                                        {product.unit_type === 'weight' ? <span className="text-slate-500">/kg</span> : product.unit_type === 'pcs' ? <span className="text-slate-500">/pcs</span> : <span className="text-slate-500">/item</span>}
+                                                    </TableCell>
+                                                    <TableCell className="text-slate-700">
+                                                        {product.stock}
+                                                        {product.unit_type === 'weight' ? <span className="text-slate-500"> kg</span> : product.unit_type === 'pcs' ? <span className="text-slate-500"> pcs</span> : <span className="text-slate-500"> item</span>}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={product.is_active ? 'default' : 'secondary'} className={product.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>
+                                                            {product.is_active ? 'Active' : 'Inactive'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="sm" onClick={() => openProductDialog(product)} className="text-slate-500 hover:text-slate-900 hover:bg-slate-100" title="Edit">
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        {product.is_active ? (
+                                                            <Button variant="ghost" size="sm" onClick={() => handleDeactivateProduct(product)} className="text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50" title="Deactivate">
+                                                                <PowerOff className="h-4 w-4" />
+                                                            </Button>
+                                                        ) : (
+                                                            <Button variant="ghost" size="sm" onClick={() => handleReactivateProduct(product)} className="text-green-500 hover:text-green-600 hover:bg-green-50" title="Activate">
+                                                                <Power className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteProduct(product)} className="text-red-500 hover:text-red-600 hover:bg-red-50" title="Delete">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Pagination */}
+                            {managedTotalPages > 1 && (
+                                <div className="flex items-center justify-center gap-2 sm:gap-4 mt-6">
+                                    <Button variant="outline" size="sm" onClick={() => setProductPage(prev => Math.max(1, prev - 1))} disabled={productPage === 1} className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
+                                        <ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline ml-1">Previous</span>
+                                    </Button>
+                                    <span className="text-sm text-slate-600">{productPage} / {managedTotalPages}</span>
+                                    <Button variant="outline" size="sm" onClick={() => setProductPage(prev => Math.min(managedTotalPages, prev + 1))} disabled={productPage >= managedTotalPages} className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
                                         <span className="hidden sm:inline mr-1">Next</span><ChevronRight className="h-4 w-4" />
                                     </Button>
                                 </div>
@@ -872,32 +1188,34 @@ export default function POSPage() {
 
             {/* Order Details Dialog (for pending orders) */}
             <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-                <DialogContent className="max-w-[90vw] sm:max-w-[500px] bg-white border-slate-200 shadow-xl">
-                    <DialogHeader>
+                <DialogContent className="max-w-[90vw] sm:max-w-[500px] max-h-[85vh] flex flex-col bg-white border-slate-200 shadow-xl">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle className="text-3xl text-yellow-600">{selectedOrder?.short_id}</DialogTitle>
                         <DialogDescription className="text-slate-500">Order details and payment</DialogDescription>
                     </DialogHeader>
                     {selectedOrder && (
-                        <div className="py-4">
-                            <div className="space-y-2 mb-4">
-                                {selectedOrder.items.map((item) => (
-                                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-slate-100">
-                                        <div>
-                                            <div className="text-slate-800">{item.product_name}</div>
-                                            <div className="text-sm text-slate-500">{item.quantity} × {formatPrice(item.price_at_purchase)}</div>
+                        <div className="flex-1 overflow-hidden flex flex-col py-2">
+                            <ScrollArea className="flex-1 max-h-[40vh] pr-2">
+                                <div className="space-y-2">
+                                    {selectedOrder.items.map((item) => (
+                                        <div key={item.id} className="flex justify-between items-center py-2 border-b border-slate-100">
+                                            <div>
+                                                <div className="text-slate-800">{item.product_name}</div>
+                                                <div className="text-sm text-slate-500">{item.quantity} × {formatPrice(item.price_at_purchase)}</div>
+                                            </div>
+                                            <div className="text-green-600 font-mono font-semibold">{formatPrice(item.subtotal)}</div>
                                         </div>
-                                        <div className="text-green-600 font-mono font-semibold">{formatPrice(item.subtotal)}</div>
-                                    </div>
-                                ))}
-                            </div>
-                            <Separator className="bg-slate-200 my-4" />
-                            <div className="flex justify-between items-center">
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                            <Separator className="bg-slate-200 my-4 shrink-0" />
+                            <div className="flex justify-between items-center shrink-0">
                                 <span className="text-xl text-slate-600">Total</span>
                                 <span className="text-3xl font-bold text-slate-800">{formatPrice(selectedOrder.total_amount)}</span>
                             </div>
                         </div>
                     )}
-                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 shrink-0 pt-2">
                         <Button variant="outline" onClick={() => selectedOrder && handleCancelOrder(selectedOrder.id)} disabled={processing} className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400">Cancel Order</Button>
                         <Button onClick={() => selectedOrder && handlePayOrder(selectedOrder.id)} disabled={processing} className="flex-1 h-12 text-lg bg-linear-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600">{processing ? 'Processing...' : '✅ Confirm Payment'}</Button>
                     </DialogFooter>
@@ -940,6 +1258,164 @@ export default function POSPage() {
                         <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)} className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-100">Close</Button>
                         <Button onClick={() => window.print()} className="flex-1 bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"><Printer className="h-4 w-4 mr-2" />Print</Button>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Product Form Dialog */}
+            <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+                <DialogContent className="sm:max-w-[500px] bg-white border-slate-200 text-slate-900">
+                    <form onSubmit={handleProductSubmit}>
+                        <DialogHeader>
+                            <DialogTitle className="text-slate-900">{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+                            <DialogDescription className="text-slate-500">
+                                {showBarcode ? 'Barcoded product' : 'Product information'}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            {/* Barcode */}
+                            {showBarcode && (
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="barcode" className="text-right">Code</Label>
+                                    <div className="col-span-3 flex gap-2">
+                                        <Input
+                                            id="barcode"
+                                            value={formData.barcode || ''}
+                                            onChange={(e) => setFormData({ ...formData, barcode: e.target.value || null })}
+                                            className="flex-1 bg-white border-slate-300 text-slate-900"
+                                            placeholder="Enter barcode or code"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => setProductScannerOpen(true)}
+                                            className="border-slate-300 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
+                                            title="Scan barcode"
+                                        >
+                                            <ScanLine className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Name */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="name" className="text-right">Name</Label>
+                                <Input
+                                    id="name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="col-span-3 bg-white border-slate-300 text-slate-900"
+                                    required
+                                />
+                            </div>
+                            {/* Category */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="category" className="text-right">Category</Label>
+                                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                                    <SelectTrigger className="col-span-3 bg-white border-slate-300 text-slate-900">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {PRODUCT_CATEGORIES.map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {/* Price */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="price" className="text-right">Price (Rp)</Label>
+                                <Input
+                                    id="price"
+                                    type="number"
+                                    min="0"
+                                    step="500"
+                                    value={formData.price || ''}
+                                    onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) || 0 })}
+                                    onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                    placeholder="0"
+                                    className="col-span-3 bg-white border-slate-300 text-slate-900"
+                                    required
+                                />
+                            </div>
+                            {/* Stock */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="stock" className="text-right">Stock</Label>
+                                <Input
+                                    id="stock"
+                                    type="number"
+                                    min="0"
+                                    value={formData.stock || ''}
+                                    onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) || 0 })}
+                                    onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                    placeholder="0"
+                                    className="col-span-3 bg-white border-slate-300 text-slate-900"
+                                />
+                            </div>
+                            {/* Unit Type */}
+                            {showWeightUnit && (
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="unit_type" className="text-right">Sold by</Label>
+                                    <Select value={formData.unit_type} onValueChange={(value: 'item' | 'weight' | 'pcs') => setFormData({ ...formData, unit_type: value })}>
+                                        <SelectTrigger className="col-span-3 bg-white border-slate-300 text-slate-900">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="item">Per Item</SelectItem>
+                                            <SelectItem value="weight">Per Kg</SelectItem>
+                                            <SelectItem value="pcs">Per Pcs</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                            {/* Active Toggle */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="is_active" className="text-right">Active</Label>
+                                <div className="col-span-3 flex items-center">
+                                    <Switch
+                                        id="is_active"
+                                        checked={formData.is_active}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                                    />
+                                    <span className="ml-2 text-sm text-slate-600">
+                                        {formData.is_active ? 'Available for sale' : 'Hidden from orders'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setProductDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
+                                Cancel
+                            </Button>
+                            <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                {editingProduct ? 'Save Changes' : 'Create Product'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Product Barcode Scanner Dialog */}
+            <Dialog open={productScannerOpen} onOpenChange={setProductScannerOpen}>
+                <DialogContent className="sm:max-w-[450px] bg-white border-slate-200 shadow-xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-slate-900 flex items-center gap-2">
+                            <ScanLine className="h-5 w-5 text-indigo-600" />
+                            Scan Barcode
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-500">
+                            Scan a barcode to fill the product code field
+                        </DialogDescription>
+                    </DialogHeader>
+                    {productScannerOpen && (
+                        <BarcodeScanner
+                            onScanSuccess={(barcode) => {
+                                setFormData({ ...formData, barcode });
+                                setProductScannerOpen(false);
+                                toast.success('Barcode Scanned', { description: `Code "${barcode}" captured` });
+                            }}
+                            onClose={() => setProductScannerOpen(false)}
+                            autoStart
+                        />
+                    )}
                 </DialogContent>
             </Dialog>
         </div>

@@ -210,3 +210,33 @@ export interface StockAdjustmentResponse {
     adjustment: number;
 }
 
+// User Types
+export type UserRole = 'admin' | 'staff';
+
+export interface User {
+    id: string;
+    email: string;
+    full_name: string;
+    role: UserRole;
+    is_active: boolean;
+    created_at: string;
+}
+
+export interface UserCreate {
+    email: string;
+    password: string;
+    full_name: string;
+    role: UserRole;
+}
+
+export interface UserUpdate {
+    email?: string;
+    full_name?: string;
+    role?: UserRole;
+    is_active?: boolean;
+}
+
+export interface UserListResponse {
+    users: User[];
+    total: number;
+}

@@ -268,6 +268,7 @@ export default function ProductsPage() {
             <Toaster richColors position="top-right" closeButton expand visibleToasts={5} />
             {/* Controls */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
+                {/* search bar below */}
                 <div className="flex-1">
                     <Input
                         placeholder="Search products by name or barcode..."
@@ -276,6 +277,7 @@ export default function ProductsPage() {
                         className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
                     />
                 </div>
+                {/* filter category below */}
                 <Select value={filterCategory} onValueChange={setFilterCategory}>
                     <SelectTrigger className="w-[180px] bg-white border-gray-300 text-gray-900">
                         <SelectValue placeholder="All Categories" />
@@ -287,6 +289,7 @@ export default function ProductsPage() {
                         ))}
                     </SelectContent>
                 </Select>
+                {/* scan section */}
                 <Button
                     variant="outline"
                     onClick={() => openScanner('lookup')}
@@ -302,6 +305,7 @@ export default function ProductsPage() {
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[500px] bg-white border-gray-200 text-gray-900">
+                        {/* form create / edit product below */}
                         <form onSubmit={handleSubmit}>
                             <DialogHeader>
                                 <DialogTitle className="text-gray-900">{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>

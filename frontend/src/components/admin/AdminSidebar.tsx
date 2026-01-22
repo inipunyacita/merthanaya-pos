@@ -10,7 +10,8 @@ import {
     FileText,
     Home,
     Menu,
-    X
+    X,
+    Users
 } from 'lucide-react';
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
     { href: '/admin/inventory', label: 'Inventory', icon: PackageSearch },
     { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/admin/transactions', label: 'History', icon: FileText },
+    { href: '/admin/users', label: 'Users', icon: Users },
 ];
 
 export function AdminSidebar() {
@@ -55,13 +57,10 @@ export function AdminSidebar() {
                 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
                 {/* Logo/Header */}
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border-b border-gray-200 flex justify-center">
                     <Link href="/" className="flex items-center gap-2" onClick={closeSidebar}>
-                        <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                            <Home className="w-5 h-5 text-white" />
-                        </div>
                         <div>
-                            <h1 className="font-bold text-gray-900">Merthanaya</h1>
+                            <img src="/merthanayafix.svg" className="w-24 h-12" alt="" />
                             <p className="text-xs text-gray-500">Admin Panel</p>
                         </div>
                     </Link>
@@ -100,18 +99,11 @@ export function AdminSidebar() {
                 <div className="p-4 border-t border-gray-200">
                     <div className="flex flex-col gap-2 text-sm">
                         <Link
-                            href="/runner"
+                            href="/pos"
                             onClick={closeSidebar}
                             className="text-gray-500 hover:text-purple-600 transition-colors"
                         >
-                            → Go to Runner
-                        </Link>
-                        <Link
-                            href="/cashier"
-                            onClick={closeSidebar}
-                            className="text-gray-500 hover:text-purple-600 transition-colors"
-                        >
-                            → Go to Cashier
+                            → Go to POS
                         </Link>
                     </div>
                 </div>

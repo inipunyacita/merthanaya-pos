@@ -6,7 +6,9 @@ import {
     ShoppingCart,
     DollarSign,
     Package,
-    RefreshCw
+    RefreshCw,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import {
     LineChart,
@@ -42,6 +44,8 @@ export default function AnalyticsPage() {
     const [categoryData, setCategoryData] = useState<CategorySales[]>([]);
     const [trendData, setTrendData] = useState<DailySales[]>([]);
     const [hourlyData, setHourlyData] = useState<HourlyDistribution[]>([]);
+    const [categoryPage, setCategoryPage] = useState(1);
+    const CATEGORIES_PER_PAGE = 5;
 
     const fetchAllData = async () => {
         setLoading(true);
@@ -199,23 +203,73 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Category Breakdown */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border">
+                <div className="bg-white rounded-xl shadow-sm p-6 border flex flex-col">
                     <h3 className="text-lg font-semibold mb-4">🥧 Sales by Category</h3>
                     {categoryData.length === 0 ? (
-                        <div className="h-64 flex items-center justify-center">
+                        <div className="flex-1 flex items-center justify-center">
                             <p className="text-gray-500">No sales data available</p>
                         </div>
                     ) : (
                         <>
-                            <div className="h-48">
+                            {/* Category List - Shows first, fills from top */}
+                            <div className="space-y-2 mb-4">
+                                {categoryData
+                                    .slice((categoryPage - 1) * CATEGORIES_PER_PAGE, categoryPage * CATEGORIES_PER_PAGE)
+                                    .map((cat, idx) => {
+                                        const globalIndex = (categoryPage - 1) * CATEGORIES_PER_PAGE + idx;
+                                        return (
+                                            <div key={cat.category} className="flex items-center justify-between text-sm py-2 border-b last:border-0">
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="w-3 h-3 rounded-full shrink-0"
+                                                        style={{ backgroundColor: COLORS[globalIndex % COLORS.length] }}
+                                                    />
+                                                    <span className="text-gray-700 font-medium">{cat.category}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="font-semibold text-gray-900">{formatCurrency(cat.revenue)}</span>
+                                                    <span className="text-gray-500 ml-2">({cat.percentage}%)</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+
+                            {/* Pagination Controls */}
+                            {categoryData.length > CATEGORIES_PER_PAGE && (
+                                <div className="flex items-center justify-between text-sm mb-4">
+                                    <span className="text-gray-500">
+                                        {(categoryPage - 1) * CATEGORIES_PER_PAGE + 1}-{Math.min(categoryPage * CATEGORIES_PER_PAGE, categoryData.length)} of {categoryData.length}
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <button
+                                            onClick={() => setCategoryPage(p => Math.max(1, p - 1))}
+                                            disabled={categoryPage === 1}
+                                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setCategoryPage(p => Math.min(Math.ceil(categoryData.length / CATEGORIES_PER_PAGE), p + 1))}
+                                            disabled={categoryPage >= Math.ceil(categoryData.length / CATEGORIES_PER_PAGE)}
+                                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Compact Pie Chart */}
+                            <div className="h-32 mt-auto">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
                                             data={categoryData as unknown as Record<string, unknown>[]}
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={40}
-                                            outerRadius={70}
+                                            innerRadius={30}
+                                            outerRadius={50}
                                             paddingAngle={2}
                                             dataKey="revenue"
                                             nameKey="category"
@@ -230,24 +284,6 @@ export default function AnalyticsPage() {
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
-                            </div>
-                            {/* Category Legend */}
-                            <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">
-                                {categoryData.map((cat, index) => (
-                                    <div key={cat.category} className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <div
-                                                className="w-3 h-3 rounded-full"
-                                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                                            />
-                                            <span className="text-gray-700">{cat.category}</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="font-medium text-gray-900">{formatCurrency(cat.revenue)}</span>
-                                            <span className="text-gray-500 ml-2">({cat.percentage}%)</span>
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
                         </>
                     )}
