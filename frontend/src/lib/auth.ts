@@ -111,18 +111,59 @@ export async function getSession() {
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        console.log('[getCurrentUser] Starting...');
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        console.log('[getCurrentUser] getUser completed', { user: !!user, error: authError });
 
-        if (!user) return null;
+        if (authError) {
+            console.error('[getCurrentUser] Auth error:', authError);
+            return null;
+        }
 
-        const { data: profile } = await supabase
+        if (!user) {
+            console.log('[getCurrentUser] No user found, returning null');
+            return null;
+        }
+
+        console.log('[getCurrentUser] User found, querying profile for:', user.id);
+
+        // Add timeout for the users table query
+        const timeoutPromise = new Promise<null>((resolve) => {
+            setTimeout(() => {
+                console.warn('[getCurrentUser] Users table query timed out');
+                resolve(null);
+            }, 5000);
+        });
+
+        const profilePromise = supabase
             .from('users')
             .select('*')
             .eq('id', user.id)
             .single();
 
-        if (!profile || !profile.is_active) return null;
+        console.log('[getCurrentUser] Starting profile query race...');
+        const result = await Promise.race([profilePromise, timeoutPromise]);
+        console.log('[getCurrentUser] Race completed, result:', result);
 
+        // If timeout won, result is null
+        if (result === null) {
+            console.error('[getCurrentUser] Profile query timed out or RLS blocked');
+            return null;
+        }
+
+        const { data: profile, error: profileError } = result;
+
+        if (profileError) {
+            console.error('[getCurrentUser] Profile error:', profileError);
+            return null;
+        }
+
+        if (!profile || !profile.is_active) {
+            console.log('[getCurrentUser] No profile or inactive user');
+            return null;
+        }
+
+        console.log('[getCurrentUser] Returning user profile');
         return {
             id: user.id,
             email: user.email!,
@@ -130,7 +171,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
             role: profile.role,
             is_active: profile.is_active,
         };
-    } catch {
+    } catch (err) {
+        console.error('[getCurrentUser] Unexpected error:', err);
         return null;
     }
 }

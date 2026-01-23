@@ -31,9 +31,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         // Check initial auth state
         const initAuth = async () => {
+            console.log('[AuthContext] Starting auth initialization...');
             setLoading(true);
-            await refreshUser();
-            setLoading(false);
+            try {
+                await refreshUser();
+                console.log('[AuthContext] Auth initialized successfully');
+            } catch (error) {
+                console.error('[AuthContext] Auth init error:', error);
+            } finally {
+                console.log('[AuthContext] Setting loading to false');
+                setLoading(false);
+            }
         };
 
         initAuth();
