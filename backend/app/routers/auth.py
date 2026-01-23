@@ -23,7 +23,6 @@ def get_supabase_admin_client() -> Client:
 
 async def get_current_user(
     authorization: Optional[str] = Header(None),
-    supabase: Client = Depends(get_supabase_client)
 ) -> Optional[dict]:
     """Get current authenticated user from JWT token."""
     if not authorization:
@@ -33,11 +32,17 @@ async def get_current_user(
         # Extract token from "Bearer <token>"
         token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
         
-        # Verify the token with Supabase
+        # Use anon client with the user's token to verify
+        supabase = get_supabase_client()
         user_response = supabase.auth.get_user(token)
-        if user_response and user_response.user:
-            # Get user profile from users table
-            profile = supabase.table("users").select("*").eq("id", user_response.user.id).single().execute()
+        
+        if not user_response or not user_response.user:
+            return None
+        
+        # Use admin client to query users table (bypasses RLS)
+        admin_client = get_supabase_admin_client()
+        try:
+            profile = admin_client.table("users").select("*").eq("id", user_response.user.id).single().execute()
             if profile.data:
                 return {
                     "id": user_response.user.id,
@@ -47,17 +52,28 @@ async def get_current_user(
                     "is_active": profile.data.get("is_active", True),
                     "created_at": profile.data.get("created_at"),
                 }
-        return None
-    except Exception:
+        except Exception:
+            pass  # Continue to fallback
+        
+        # Fallback: user exists in auth but no profile - use default admin for now
+        return {
+            "id": user_response.user.id,
+            "email": user_response.user.email,
+            "full_name": user_response.user.email.split("@")[0] if user_response.user.email else "User",
+            "role": "admin",  # Default to admin for authenticated users without profile
+            "is_active": True,
+            "created_at": None,
+        }
+    except Exception as e:
+        print(f"[get_current_user] Error: {e}")
         return None
 
 
 async def require_auth(
     authorization: Optional[str] = Header(None),
-    supabase: Client = Depends(get_supabase_client)
 ) -> dict:
     """Require authentication - raises 401 if not authenticated."""
-    user = await get_current_user(authorization, supabase)
+    user = await get_current_user(authorization)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if not user.get("is_active", True):

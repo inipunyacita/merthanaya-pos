@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,11 +20,12 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Redirect if already logged in
-    if (!authLoading && user) {
-        router.replace('/select');
-        return null;
-    }
+    // Redirect if already logged in (using useEffect to avoid setState during render)
+    useEffect(() => {
+        if (!authLoading && user) {
+            router.replace('/select');
+        }
+    }, [authLoading, user, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
