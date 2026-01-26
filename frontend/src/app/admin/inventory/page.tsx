@@ -6,7 +6,9 @@ import {
     RefreshCw,
     Plus,
     Minus,
-    Save
+    Save,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import { inventoryApi, productApi } from '@/lib/api';
 import { LowStockProduct, Product } from '@/types';
@@ -19,9 +21,11 @@ export default function InventoryPage() {
     const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [adjustments, setAdjustments] = useState<Record<string, number>>({});
-    const [reasons, setReasons] = useState<Record<string, string>>({});
+    const [priceChanges, setPriceChanges] = useState<Record<string, number>>({});
     const [adjusting, setAdjusting] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     const fetchData = async () => {
         setLoading(true);
@@ -44,31 +48,53 @@ export default function InventoryPage() {
         fetchData();
     }, [threshold]);
 
-    const handleAdjustStock = async (productId: string) => {
-        const adjustment = adjustments[productId];
-        if (!adjustment || adjustment === 0) {
-            toast.error('Enter a valid adjustment amount');
+    const handleSaveChanges = async (product: Product) => {
+        const stockAdjustment = adjustments[product.id] || 0;
+        const newPrice = priceChanges[product.id];
+        const hasStockChange = stockAdjustment !== 0;
+        const hasPriceChange = newPrice !== undefined && newPrice !== product.price;
+
+        if (!hasStockChange && !hasPriceChange) {
+            toast.error('No changes to save');
             return;
         }
 
-        setAdjusting(productId);
+        setAdjusting(product.id);
         try {
-            const result = await inventoryApi.adjustStock({
-                product_id: productId,
-                adjustment,
-                reason: reasons[productId] || undefined
+            const messages: string[] = [];
+
+            // Update price if changed
+            if (hasPriceChange) {
+                await productApi.update(product.id, { price: newPrice });
+                messages.push(`Price updated to Rp ${newPrice.toLocaleString('id-ID')}`);
+            }
+
+            // Update stock if changed
+            if (hasStockChange) {
+                const result = await inventoryApi.adjustStock({
+                    product_id: product.id,
+                    adjustment: stockAdjustment,
+                });
+                messages.push(`Stock: ${result.new_stock} units`);
+            }
+
+            toast.success(`${product.name} updated`, {
+                description: messages.join(' | '),
+                duration: 3000,
             });
 
-            toast.success(`Stock updated: ${result.product_name} now has ${result.new_stock} units`);
-
-            // Clear adjustment input
-            setAdjustments(prev => ({ ...prev, [productId]: 0 }));
-            setReasons(prev => ({ ...prev, [productId]: '' }));
+            // Clear inputs
+            setAdjustments(prev => ({ ...prev, [product.id]: 0 }));
+            setPriceChanges(prev => {
+                const updated = { ...prev };
+                delete updated[product.id];
+                return updated;
+            });
 
             // Refresh data
             fetchData();
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to adjust stock';
+            const errorMessage = error instanceof Error ? error.message : 'Failed to save changes';
             toast.error(errorMessage);
         } finally {
             setAdjusting(null);
@@ -77,8 +103,19 @@ export default function InventoryPage() {
 
     const filteredProducts = allProducts.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase())
+        (p.barcode?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
     );
+
+    // Reset to page 1 when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
+    // Calculate paginated products
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
 
     const getStockStatus = (stock: number) => {
         if (stock <= 0) return { color: 'bg-red-100 text-red-800', label: 'Out of Stock' };
@@ -151,12 +188,12 @@ export default function InventoryPage() {
                     <table className="w-full min-w-[800px]">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Code</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Product</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Category</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Current Stock</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Adjust</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Reason</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Price (Rp)</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Action</th>
                             </tr>
                         </thead>
@@ -167,24 +204,24 @@ export default function InventoryPage() {
                                         Loading...
                                     </td>
                                 </tr>
-                            ) : filteredProducts.length === 0 ? (
+                            ) : paginatedProducts.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                                         No products found
                                     </td>
                                 </tr>
                             ) : (
-                                filteredProducts.map(product => {
+                                paginatedProducts.map(product => {
                                     const status = getStockStatus(product.stock);
                                     return (
                                         <tr key={product.id} className="hover:bg-gray-50">
                                             <td className="px-4 py-3">
-                                                <p className="font-medium">{product.name}</p>
+                                                <p className="font-medium">{product.barcode}</p>
                                             </td>
-                                            <td className="px-4 py-3 text-gray-600">{product.category}</td>
+                                            <td className="px-4 py-3 text-gray-600">{product.name}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <span className="font-semibold">{product.stock}</span>
-                                                <span className="text-gray-500 text-sm ml-1">{product.unit_type}</span>
+                                                <span className="text-gray-500 text-sm ml-1">{product.unit_type === 'weight' ? 'kg' : (product.unit_type === 'item' ? 'item' : (product.unit_type === 'pcs' ? 'pcs' : ''))}</span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
@@ -224,21 +261,23 @@ export default function InventoryPage() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <input
-                                                    type="text"
-                                                    placeholder="Reason (optional)"
-                                                    value={reasons[product.id] || ''}
-                                                    onChange={(e) => setReasons(prev => ({
+                                                    type="number"
+                                                    placeholder={Math.round(product.price).toLocaleString('id-ID')}
+                                                    value={priceChanges[product.id] !== undefined ? Math.round(priceChanges[product.id]) : ''}
+                                                    onChange={(e) => setPriceChanges(prev => ({
                                                         ...prev,
-                                                        [product.id]: e.target.value
+                                                        [product.id]: e.target.value ? Math.round(Number(e.target.value)) : product.price
                                                     }))}
-                                                    className="w-full px-2 py-1 border rounded text-sm"
+                                                    className="w-28 px-2 py-1 border rounded text-sm text-right"
+                                                    min={0}
+                                                    step={500}
                                                 />
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <button
-                                                    onClick={() => handleAdjustStock(product.id)}
-                                                    disabled={!adjustments[product.id] || adjusting === product.id}
-                                                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    onClick={() => handleSaveChanges(product)}
+                                                    disabled={(!adjustments[product.id] && !priceChanges[product.id]) || adjusting === product.id}
+                                                    className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <Save className="w-4 h-4" />
                                                 </button>
@@ -250,6 +289,47 @@ export default function InventoryPage() {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-500 order-2 sm:order-1">
+                    Showing {filteredProducts.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
+                </div>
+                {totalPages > 1 && (
+                    <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
+                        <button
+                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 border rounded-lg text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            <span className="hidden sm:inline">Previous</span>
+                        </button>
+                        <div className="flex items-center gap-1 flex-wrap justify-center">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`min-w-8 px-3 py-1.5 rounded-lg text-sm ${currentPage === page
+                                        ? 'bg-purple-600 text-white'
+                                        : 'border text-gray-700 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1.5 border rounded-lg text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        >
+                            <span className="hidden sm:inline">Next</span>
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
             </div>
         </AdminLayout>
     );

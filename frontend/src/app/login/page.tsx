@@ -55,21 +55,16 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-linear-to-br white p-4">
             <div className="w-full max-w-md">
-                {/* Logo */}
-                <div className="text-center mb-8">
-                    <div className="text-6xl mb-4">🏪</div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Merthanaya POS</h1>
-                    <p className="text-gray-400">Traditional Market Hybrid Point-of-Sales</p>
-                </div>
-
                 <Card className="bg-white/10 border-white/20 backdrop-blur-xl shadow-2xl">
-                    <CardHeader className="space-y-1 pb-4">
-                        <CardTitle className="text-2xl font-bold text-white text-center">Sign In</CardTitle>
-                        <CardDescription className="text-gray-400 text-center">
-                            Enter your credentials to access the system
-                        </CardDescription>
+                    <CardHeader className="space-y-1 pb-1">
+                        {/* Logo */}
+                        <div className="text-center mb-8">
+                            <div className="flex items-center justify-center"><img src="/merthanayafix.svg" alt="Logo" className='w-24 h-24' /></div>
+                            <h1 className="text-3xl font-bold text-black mb-2">POS</h1>
+                            <p className="text-gray">Traditional Market Hybrid Point-of-Sales</p>
+                        </div>
                     </CardHeader>
 
                     <form onSubmit={handleSubmit}>
@@ -81,7 +76,7 @@ export default function LoginPage() {
                             )}
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-gray-300">Email</Label>
+                                <Label htmlFor="email" className="text-gray">Email</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -89,12 +84,12 @@ export default function LoginPage() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
-                                    className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 focus:ring-purple-400"
+                                    className="bg-white/10 border-white/20 text-black placeholder:text-gray-500 focus:border-purple-400 focus:ring-purple-400 mb-2"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-gray-300">Password</Label>
+                                <Label htmlFor="password" className="text-gray">Password</Label>
                                 <div className="relative">
                                     <Input
                                         id="password"
@@ -103,12 +98,12 @@ export default function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
-                                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 focus:ring-purple-400 pr-10"
+                                        className="bg-white/10 border-white/20 text-black placeholder:text-gray-500 focus:border-purple-400 focus:ring-purple-400 pr-10 mb-5"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
+                                        className="absolute right-3 top-1/3 -translate-y-1/2 text-gray-400 hover:text-white transition"
                                     >
                                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                     </button>
@@ -120,7 +115,7 @@ export default function LoginPage() {
                             <Button
                                 type="submit"
                                 disabled={loading || !email || !password}
-                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 transition-all duration-200"
+                                className="w-full bg-amber-500 hover:bg-amber-700 text-black font-bold py-2.5 transition-all duration-200"
                             >
                                 {loading ? (
                                     <>
@@ -137,7 +132,7 @@ export default function LoginPage() {
 
                             <Link
                                 href="/forgot-password"
-                                className="text-sm text-purple-400 hover:text-purple-300 transition text-center"
+                                className="text-sm text-gray hover:text-gray transition text-center"
                             >
                                 Forgot your password?
                             </Link>
@@ -147,7 +142,7 @@ export default function LoginPage() {
 
                 {/* Footer */}
                 <footer className="mt-8 text-center text-sm text-gray-500">
-                    <p>Built with Next.js, FastAPI & Supabase</p>
+                    <p>Built 2026 by Cakatech</p>
                 </footer>
             </div>
         </div>

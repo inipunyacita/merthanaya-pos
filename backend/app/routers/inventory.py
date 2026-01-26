@@ -79,16 +79,16 @@ async def adjust_stock(adjustment: StockAdjustment):
     
     # Update product stock
     db.table("products").update({
-        "stock": float(new_stock)
+        "stock": int(new_stock)
     }).eq("id", str(adjustment.product_id)).execute()
     
     # Log to stock_history table (if exists)
     try:
         db.table("stock_history").insert({
             "product_id": str(adjustment.product_id),
-            "previous_stock": float(current_stock),
-            "new_stock": float(new_stock),
-            "adjustment": float(adjustment.adjustment),
+            "previous_stock": int(current_stock),
+            "new_stock": int(new_stock),
+            "adjustment": int(adjustment.adjustment),
             "reason": adjustment.reason,
             "created_at": datetime.utcnow().isoformat()
         }).execute()
@@ -100,9 +100,9 @@ async def adjust_stock(adjustment: StockAdjustment):
         "success": True,
         "product_id": str(adjustment.product_id),
         "product_name": product["name"],
-        "previous_stock": current_stock,
-        "new_stock": new_stock,
-        "adjustment": adjustment.adjustment
+        "previous_stock": int(current_stock),
+        "new_stock": int(new_stock),
+        "adjustment": int(adjustment.adjustment)
     }
 
 
