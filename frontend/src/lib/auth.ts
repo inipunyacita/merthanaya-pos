@@ -124,11 +124,27 @@ export async function getSession() {
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
     try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        // Add timeout to getUser() to prevent hanging on stale sessions
+        const userPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise<{ data: { user: null }, error: any }>((resolve) => {
+            setTimeout(() => resolve({ data: { user: null }, error: { name: 'TimeoutError', message: 'Auth check timed out' } }), 2000);
+        });
+
+        const { data: { user }, error: authError } = await Promise.race([userPromise, timeoutPromise]) as any;
 
         if (authError) {
             // AuthSessionMissingError is expected when user is not logged in
             if (authError.name === 'AuthSessionMissingError') {
+                return null;
+            }
+            // Handle invalid refresh token or timeout - clear session and return null
+            if (authError.message?.includes('Refresh Token') || authError.message?.includes('refresh_token') || authError.name === 'TimeoutError') {
+                console.warn('[getCurrentUser] Auth error or timeout, clearing session...', authError.message);
+
+                // Only clear session if not a network timeout to be safe
+                if (authError.name !== 'TimeoutError') {
+                    await supabase.auth.signOut();
+                }
                 return null;
             }
             console.error('[getCurrentUser] Auth error:', authError);
@@ -139,11 +155,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
             return null;
         }
 
-        // Try to get profile from users table (with timeout)
+        // Try to get profile from users table (with short timeout for fast loading)
         let profile = null;
         try {
             const timeoutPromise = new Promise<null>((resolve) => {
-                setTimeout(() => resolve(null), 3000);
+                setTimeout(() => resolve(null), 500); // 500ms timeout for fast UX
             });
 
             const profilePromise = supabase
@@ -181,14 +197,30 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         };
     } catch (err) {
         console.error('[getCurrentUser] Unexpected error:', err);
+        // Auto-clear session on unexpected errors to prevent stuck states
+        try {
+            await supabase.auth.signOut();
+        } catch (e) {
+            // Ignore signout errors
+        }
         return null;
     }
 }
 
 /**
- * Get access token for API requests
+ * Get access token for API requests with timeout
  */
 export async function getAccessToken(): Promise<string | null> {
-    const session = await getSession();
-    return session?.access_token || null;
+    try {
+        const sessionPromise = getSession();
+        const timeoutPromise = new Promise<null>((resolve) => {
+            setTimeout(() => resolve(null), 1500); // 1.5s timeout for token fetch
+        });
+
+        const session = await Promise.race([sessionPromise, timeoutPromise]);
+        return session?.access_token || null;
+    } catch (err) {
+        console.warn('[getAccessToken] Failed to fetch session:', err);
+        return null;
+    }
 }

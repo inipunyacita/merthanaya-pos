@@ -33,12 +33,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const initAuth = async () => {
             console.log('[AuthContext] Starting auth initialization...');
             setLoading(true);
+
+            // Safety timeout for the entire initialization
+            const initTimeout = setTimeout(() => {
+                if (loading) {
+                    console.warn('[AuthContext] Auth initialization taking too long, forcing loading to false');
+                    setLoading(false);
+                }
+            }, 5000); // 5s absolute maximum wait
+
             try {
                 await refreshUser();
                 console.log('[AuthContext] Auth initialized successfully');
             } catch (error) {
                 console.error('[AuthContext] Auth init error:', error);
             } finally {
+                clearTimeout(initTimeout);
                 console.log('[AuthContext] Setting loading to false');
                 setLoading(false);
             }
@@ -48,12 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Listen for auth state changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session) {
-                await refreshUser();
-            } else if (event === 'SIGNED_OUT') {
+            console.log('[AuthContext] Auth state change:', event);
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (session) {
+                    await refreshUser();
+                }
+            } else if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
                 setUser(null);
-            } else if (event === 'TOKEN_REFRESHED') {
-                await refreshUser();
+                setLoading(false);
             }
         });
 
@@ -72,8 +84,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signOut = async () => {
-        await authSignOut();
-        setUser(null);
+        try {
+            await authSignOut();
+            // Force clear local storage just in case Supabase client misses something
+            if (typeof window !== 'undefined') {
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('sb-')) localStorage.removeItem(key);
+                });
+            }
+        } catch (err) {
+            console.error('[AuthContext] Sign out error:', err);
+        } finally {
+            setUser(null);
+        }
     };
 
     const resetPassword = async (email: string) => {

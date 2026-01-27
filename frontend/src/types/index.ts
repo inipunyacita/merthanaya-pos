@@ -240,3 +240,24 @@ export interface UserListResponse {
     users: User[];
     total: number;
 }
+
+// Store Types
+export interface Store {
+    id: string;
+    owner_id: string;
+    name: string;
+    logo_url: string | null;
+    address: string | null;
+    phone: string | null;
+    receipt_footer: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface StoreUpdate {
+    name?: string;
+    logo_url?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    receipt_footer?: string | null;
+}

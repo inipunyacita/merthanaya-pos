@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Header
 from uuid import UUID
 from datetime import datetime, date
 from decimal import Decimal
+from typing import Optional
 
 from app.db.supabase import get_db
 from app.models.order import (
@@ -13,6 +14,7 @@ from app.models.order import (
     PaginatedOrdersResponse,
     PaymentResponse
 )
+from app.routers.auth import get_current_user, require_auth
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -47,12 +49,16 @@ def generate_invoice_id(daily_id: int) -> str:
 
 
 @router.post("/", response_model=OrderResponse, status_code=201)
-async def create_order(order: OrderCreate):
+async def create_order(
+    order: OrderCreate,
+    current_user: dict = Depends(require_auth)
+):
     """
     Create a new order from the Runner.
     - Generates daily ID (#001, #002, etc.)
     - Calculates total from current product prices
     - Creates order and order_items records
+    - Auto-sets runner_id to current user
     """
     try:
         db = get_db()
@@ -104,11 +110,11 @@ async def create_order(order: OrderCreate):
                 "subtotal": float(subtotal)
             })
         
-        # Create order
+        # Create order - auto-set runner_id to current user
         order_data = {
             "daily_id": daily_id,
             "invoice_id": invoice_id,
-            "runner_id": str(order.runner_id) if order.runner_id else None,
+            "runner_id": current_user["id"],  # Always set to current user
             "total_amount": float(total_amount),
             "status": "PENDING"
         }
@@ -140,7 +146,7 @@ async def create_order(order: OrderCreate):
             daily_id=daily_id,
             short_id=short_id,
             invoice_id=invoice_id,
-            runner_id=order.runner_id,
+            runner_id=UUID(current_user["id"]),
             total_amount=Decimal(str(order_record["total_amount"])),
             status=order_record["status"],
             items=response_items,
@@ -155,17 +161,24 @@ async def create_order(order: OrderCreate):
 
 
 @router.get("/pending", response_model=PendingOrdersResponse)
-async def get_pending_orders():
-    """Get all pending orders for the Cashier dashboard."""
+async def get_pending_orders(
+    current_user: Optional[dict] = Depends(get_current_user)
+):
+    """Get pending orders for the POS dashboard.
+    Staff users only see their own orders, admin sees all.
+    """
     try:
         db = get_db()
         
+        # Build query with pending status
+        query = db.table("orders").select("*").eq("status", "PENDING")
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
+        
         # Get pending orders ordered by creation time
-        result = db.table("orders")\
-            .select("*")\
-            .eq("status", "PENDING")\
-            .order("created_at", desc=False)\
-            .execute()
+        result = query.order("created_at", desc=False).execute()
         
         orders = []
         for order_data in result.data:
@@ -195,30 +208,41 @@ async def get_pending_orders():
 
 
 @router.get("/paid", response_model=PaginatedOrdersResponse)
-async def get_paid_orders(page: int = 1, page_size: int = 6):
-    """Get all paid orders with pagination for Cashier success history."""
+async def get_paid_orders(
+    page: int = 1,
+    page_size: int = 6,
+    current_user: Optional[dict] = Depends(get_current_user)
+):
+    """Get paid orders with pagination for POS success history.
+    Staff users only see their own orders, admin sees all.
+    """
     try:
         db = get_db()
         
-        # Get total count first
-        count_result = db.table("orders")\
-            .select("id", count="exact")\
-            .eq("status", "PAID")\
-            .execute()
+        # Build count query
+        count_query = db.table("orders").select("id", count="exact").eq("status", "PAID")
         
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            count_query = count_query.eq("runner_id", current_user["id"])
+        
+        # Get total count
+        count_result = count_query.execute()
         total = count_result.count if count_result.count else 0
         total_pages = (total + page_size - 1) // page_size if total > 0 else 1
         
         # Calculate offset
         offset = (page - 1) * page_size
         
+        # Build data query
+        query = db.table("orders").select("*").eq("status", "PAID")
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
+        
         # Get paid orders ordered by updated_at (most recent first)
-        result = db.table("orders")\
-            .select("*")\
-            .eq("status", "PAID")\
-            .order("updated_at", desc=True)\
-            .range(offset, offset + page_size - 1)\
-            .execute()
+        result = query.order("updated_at", desc=True).range(offset, offset + page_size - 1).execute()
         
         orders = []
         for order_data in result.data:
@@ -371,10 +395,12 @@ async def get_transaction_history(
     status: str = None,
     date_from: date = None,
     date_to: date = None,
-    search: str = None
+    search: str = None,
+    current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
     Get comprehensive transaction history with filters.
+    Staff users only see their own orders, admin sees all.
     - status: PAID, CANCELLED, or PENDING
     - date_from/date_to: Date range filter
     - search: Search by invoice_id
@@ -384,6 +410,10 @@ async def get_transaction_history(
         
         # Build query
         query = db.table("orders").select("*", count="exact")
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
         
         # Apply filters
         if status:
@@ -408,6 +438,10 @@ async def get_transaction_history(
         
         # Rebuild query with pagination
         query = db.table("orders").select("*")
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
         
         if status:
             query = query.eq("status", status.upper())

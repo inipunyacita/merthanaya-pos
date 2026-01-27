@@ -83,7 +83,7 @@ function SelectContent() {
 
                 {/* Footer */}
                 <footer className="mt-16 text-sm text-gray-500">
-                    <p>Built with Next.js, FastAPI & Supabase</p>
+                    <p>Built 2026 by Cakatech</p>
                 </footer>
             </main>
         </div>

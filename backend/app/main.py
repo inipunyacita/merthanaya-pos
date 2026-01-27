@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import products_router, orders_router, analytics_router, inventory_router, auth_router, users_router
+from app.routers import products_router, orders_router, analytics_router, inventory_router, auth_router, users_router, stores_router
 
 app = FastAPI(
     title="Merthanaya POS API",
@@ -32,6 +32,7 @@ app.include_router(products_router)
 app.include_router(orders_router)
 app.include_router(analytics_router)
 app.include_router(inventory_router)
+app.include_router(stores_router)
 
 
 @app.get("/")

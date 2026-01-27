@@ -19,6 +19,8 @@ import {
     User,
     UserCreate,
     UserUpdate,
+    Store,
+    StoreUpdate,
 } from '@/types';
 import { getAccessToken } from './auth';
 
@@ -26,6 +28,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
+    timeout: 10000, // 10 second timeout for all requests
     headers: {
         'Content-Type': 'application/json',
     },
@@ -192,6 +195,19 @@ export const usersApi = {
 
     reactivate: async (id: string) => {
         const response = await api.post<User>(`/users/${id}/reactivate`);
+        return response.data;
+    },
+};
+
+// Store API
+export const storeApi = {
+    getMe: async () => {
+        const response = await api.get<Store>('/stores/me');
+        return response.data;
+    },
+
+    updateMe: async (store: StoreUpdate) => {
+        const response = await api.put<Store>('/stores/me', store);
         return response.data;
     },
 };

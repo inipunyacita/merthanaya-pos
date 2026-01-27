@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
     ChevronLeft, ChevronRight, ChevronDown, ScanLine, Printer,
     ShoppingCart, X, Menu, ClipboardList, CheckCircle, Package,
-    Plus, Pencil, Power, PowerOff, Trash2
+    Plus, Pencil, Power, PowerOff, Trash2, LogOut
 } from 'lucide-react';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
+import { StoreSettings } from '@/components/pos/StoreSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,17 +23,21 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Toaster, toast } from 'sonner';
-import { Product, ProductCreate, ProductUpdate, CartItem, OrderSummary, Order, PRODUCT_CATEGORIES } from '@/types';
-import { productApi, orderApi } from '@/lib/api';
+import { Product, ProductCreate, ProductUpdate, CartItem, OrderSummary, Order, PRODUCT_CATEGORIES, Store } from '@/types';
+import { productApi, orderApi, storeApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { Switch } from '@/components/ui/switch';
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { useAuth } from '@/contexts/AuthContext';
 
-type ViewType = 'products' | 'pending' | 'success' | 'manageproduct';
+type ViewType = 'products' | 'pending' | 'success' | 'manageproduct' | 'storesettings';
 
 export default function POSPage() {
+    const { user, signOut } = useAuth();
+    const isAdmin = user?.role === 'admin';
+
     // === VIEW STATE ===
     const [activeView, setActiveView] = useState<ViewType>('products');
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -93,6 +99,7 @@ export default function POSPage() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [productPage, setProductPage] = useState(1);
     const [totalManagedProducts, setTotalManagedProducts] = useState(0);
+    const [store, setStore] = useState<Store | null>(null);
     const MANAGE_PAGE_SIZE = 8;
     const [formData, setFormData] = useState<ProductCreate>({
         name: '',
@@ -175,13 +182,27 @@ export default function POSPage() {
         }
     }, [productPage, manageSearch]);
 
+    const fetchStore = useCallback(async () => {
+        try {
+            const data = await storeApi.getMe();
+            setStore(data);
+        } catch (error) {
+            console.error('Failed to fetch store settings:', error);
+        }
+    }, []);
+
     // === EFFECTS ===
+    useEffect(() => {
+        fetchStore();
+    }, [fetchStore]);
+
     useEffect(() => {
         if (activeView === 'products') fetchProducts();
         else if (activeView === 'pending') fetchPendingOrders();
         else if (activeView === 'success') fetchPaidOrders();
         else if (activeView === 'manageproduct') fetchManagedProducts();
-    }, [activeView, fetchProducts, fetchPendingOrders, fetchPaidOrders, fetchManagedProducts]);
+        else if (activeView === 'storesettings') fetchStore();
+    }, [activeView, fetchProducts, fetchPendingOrders, fetchPaidOrders, fetchManagedProducts, fetchStore]);
 
     // Realtime subscription for orders
     useEffect(() => {
@@ -567,9 +588,14 @@ export default function POSPage() {
                             <Menu className="w-5 h-5" />
                         </button>
 
-                        <div className="flex items-center gap-2">
-                            <img src="/merthanayafix.svg" className="w-24 h-12" alt="" />
-                            <h1 className="text-lg sm:text-xl font-bold text-slate-800 shrink-0">POS</h1>
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <img src={store?.logo_url || "/merthanayafix.svg"} className="w-16 h-10 sm:w-20 sm:h-12 object-contain" alt="" />
+                            <div className="flex flex-col truncate">
+                                <h1 className="text-sm sm:text-lg font-bold text-slate-800 truncate leading-tight">
+                                    {store?.name || 'POS'}
+                                </h1>
+                                {store?.address && <span className="text-[10px] sm:text-xs text-slate-500 truncate">{store.address}</span>}
+                            </div>
                         </div>
 
                         {/* Search Bar - only for products view */}
@@ -658,10 +684,23 @@ export default function POSPage() {
                             <Package className="h-5 w-5" />
                             <span className="flex-1">Manage Product</span>
                         </button>
+                        <button onClick={() => handleViewChange('storesettings')}
+                            className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'storesettings' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            <Power className="h-5 w-5" />
+                            <span className="flex-1">Store Settings</span>
+                        </button>
                     </nav>
                     <div className="p-3 border-t border-slate-200">
                         <nav className="space-y-1 text-sm">
-                            <a href="/admin/products" className="block px-4 py-2 text-slate-500 hover:text-indigo-600 transition">→ Admin</a>
+                            {isAdmin && (
+                                <Link href="/admin/products" className="block px-4 py-2 text-slate-500 hover:text-indigo-600 transition">→ Admin</Link>
+                            )}
+                            <button
+                                onClick={async () => { await signOut(); window.location.href = '/login'; }}
+                                className="w-full text-left px-4 py-2 text-red-500 hover:text-red-600 transition flex items-center gap-2"
+                            >
+                                <LogOut className="h-4 w-4" /> Logout
+                            </button>
                         </nav>
                     </div>
                 </aside>
@@ -960,6 +999,10 @@ export default function POSPage() {
                             )}
                         </>
                     )}
+
+                    {activeView === 'storesettings' && (
+                        <StoreSettings store={store} onUpdate={fetchStore} />
+                    )}
                 </main>
 
                 {/* Right Sidebar - Cart (Desktop) */}
@@ -1226,11 +1269,22 @@ export default function POSPage() {
             <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
                 <DialogContent className="max-w-[90vw] sm:max-w-[400px] bg-white border-slate-200 shadow-xl p-0 overflow-hidden print:shadow-none print:border-none">
                     <DialogTitle className="sr-only">Invoice {selectedOrder?.short_id}</DialogTitle>
-                    <div className="bg-linear-to-r from-emerald-600 to-green-600 text-white p-4 text-center print:bg-white print:text-black">
+                    <div className="flex flex-col items-center justify-center p-6 border-b border-slate-100 print:pb-4">
+                        {store?.logo_url ? (
+                            <img src={store.logo_url} alt={store.name} className="h-16 w-auto mb-3 object-contain" />
+                        ) : (
+                            <img src="/merthanayafix.svg" alt="Default Logo" className="h-12 w-auto mb-3 object-contain" />
+                        )}
+                        <h2 className="text-xl font-bold text-slate-800">{store?.name}</h2>
+                        {store?.address && <p className="text-xs text-slate-500 mt-1">{store.address}</p>}
+                        {store?.phone && <p className="text-xs text-slate-500">{store.phone}</p>}
+                    </div>
+
+                    <div className="bg-linear-to-r from-emerald-600 to-green-600 text-white p-3 text-center print:bg-white print:text-black print:border-y print:border-slate-200">
                         <div className="text-xs uppercase tracking-wider opacity-80 print:opacity-100">Invoice</div>
-                        <div className="text-4xl font-bold mt-1">{selectedOrder?.short_id}</div>
-                        <div className="text-sm font-mono mt-1 opacity-90">{selectedOrder?.invoice_id}</div>
-                        <div className="text-xs opacity-70 mt-2 print:opacity-100">{selectedOrder && formatDateTime(selectedOrder.created_at)}</div>
+                        <div className="text-2xl font-bold mt-1">{selectedOrder?.short_id}</div>
+                        <div className="text-xs font-mono mt-1 opacity-90">{selectedOrder?.invoice_id}</div>
+                        <div className="text-[10px] opacity-70 mt-1 print:opacity-100">{selectedOrder && formatDateTime(selectedOrder.created_at)}</div>
                     </div>
                     <div className="p-4">
                         <div className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Order Details</div>
@@ -1248,11 +1302,16 @@ export default function POSPage() {
                             </div>
                         </ScrollArea>
                     </div>
-                    <div className="bg-slate-50 p-4 border-t border-slate-200">
-                        <div className="flex justify-between items-center">
+                    <div className="bg-slate-50 p-4 border-t border-slate-200 text-center">
+                        <div className="flex justify-between items-center mb-4">
                             <span className="text-sm text-slate-600">Total ({selectedOrder?.items.length || 0} items)</span>
                             <span className="text-2xl font-bold text-green-600">{formatPrice(selectedOrder?.total_amount || 0)}</span>
                         </div>
+                        {store?.receipt_footer && (
+                            <div className="pt-4 border-t border-dashed border-slate-300">
+                                <p className="text-xs text-slate-500 italic font-medium">{store.receipt_footer}</p>
+                            </div>
+                        )}
                     </div>
                     <div className="p-4 pt-0 flex gap-2 print:hidden">
                         <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)} className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-100">Close</Button>
@@ -1418,6 +1477,6 @@ export default function POSPage() {
                     )}
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }
