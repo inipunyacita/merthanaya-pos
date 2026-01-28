@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
     ChevronLeft, ChevronRight, ChevronDown, ScanLine, Printer,
     ShoppingCart, X, Menu, ClipboardList, CheckCircle, Package,
-    Plus, Pencil, Power, PowerOff, Trash2, LogOut
+    Plus, Pencil, Power, PowerOff, Trash2, LogOut, Download, Search, BarChart3, FileText,
 } from 'lucide-react';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { StoreSettings } from '@/components/pos/StoreSettings';
@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
 
-type ViewType = 'products' | 'pending' | 'success' | 'manageproduct' | 'storesettings';
+type ViewType = 'products' | 'pending' | 'success' | 'manageproduct' | 'storesettings' | 'transactions' | 'analytics';
 
 export default function POSPage() {
     const { user, signOut } = useAuth();
@@ -92,6 +92,7 @@ export default function POSPage() {
     const [pendingSearch, setPendingSearch] = useState('');
     const [successSearch, setSuccessSearch] = useState('');
     const [manageSearch, setManageSearch] = useState('');
+    const [transactionSearch, setTransactionSearch] = useState('');
 
     // === MANAGE PRODUCT STATE ===
     const [managedProducts, setManagedProducts] = useState<Product[]>([]);
@@ -112,6 +113,12 @@ export default function POSPage() {
         is_active: true,
     });
     const [productScannerOpen, setProductScannerOpen] = useState(false);
+
+    // === TRANSACTION STATE ===
+    const [transactions, setTransactions] = useState<OrderSummary[]>([]);
+    const [transactionPage, setTransactionPage] = useState(1);
+    const [totalTransactions, setTotalTransactions] = useState(0);
+    const TRANSACTION_PAGE_SIZE = 8;
 
     // === FETCH FUNCTIONS ===
     const fetchProducts = useCallback(async () => {
@@ -182,6 +189,25 @@ export default function POSPage() {
         }
     }, [productPage, manageSearch]);
 
+    const fetchTransactions = useCallback(async () => {
+        try {
+            setLoading(true);
+            // Note: getHistory expects an object with params, not positional arguments
+            const response = await orderApi.getHistory({
+                page: transactionPage,
+                page_size: TRANSACTION_PAGE_SIZE,
+                search: transactionSearch || undefined  // Only include if not empty
+            });
+            setTransactions(response.orders);
+            setTotalTransactions(response.total);
+        } catch (error) {
+            console.error('Failed to fetch transactions:', error);
+            toast.error('Failed to load transactions');
+        } finally {
+            setLoading(false);
+        }
+    }, [transactionPage, transactionSearch]);
+
     const fetchStore = useCallback(async () => {
         try {
             const data = await storeApi.getMe();
@@ -202,7 +228,8 @@ export default function POSPage() {
         else if (activeView === 'success') fetchPaidOrders();
         else if (activeView === 'manageproduct') fetchManagedProducts();
         else if (activeView === 'storesettings') fetchStore();
-    }, [activeView, fetchProducts, fetchPendingOrders, fetchPaidOrders, fetchManagedProducts, fetchStore]);
+        else if (activeView === 'transactions') fetchTransactions();
+    }, [activeView, fetchProducts, fetchPendingOrders, fetchPaidOrders, fetchManagedProducts, fetchStore, fetchTransactions]);
 
     // Realtime subscription for orders
     useEffect(() => {
@@ -277,7 +304,7 @@ export default function POSPage() {
     const handleProductClick = (product: Product) => {
         if (product.unit_type === 'weight') {
             setSelectedProduct(product);
-            setQuantity('0.5');
+            setQuantity('');
             setNominalAmount('');
             setQuantityInputMode('weight');
             setQuantityDialogOpen(true);
@@ -477,6 +504,7 @@ export default function POSPage() {
         if (view === 'pending') setPendingPage(1);
         else if (view === 'success') setPaidPage(1);
         else if (view === 'manageproduct') setProductPage(1);
+        else if (view === 'transactions') setTransactionPage(1);
         else setCurrentPage(1);
         setSidebarOpen(false);
     };
@@ -684,6 +712,20 @@ export default function POSPage() {
                             <Package className="h-5 w-5" />
                             <span className="flex-1">Manage Product</span>
                         </button>
+                        <hr className='my-3' />
+                        <label htmlFor="" className='w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all text-slate-600 hover:bg-slate-100'>Sales</label>
+                        <button onClick={() => handleViewChange('transactions')}
+                            className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'transactions' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            <FileText className="h-5 w-5" />
+                            <span className="flex-1">Transactions</span>
+                        </button>
+                        <button onClick={() => handleViewChange('analytics')}
+                            className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'analytics' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            <BarChart3 className="h-5 w-5" />
+                            <span className="flex-1">Analytics</span>
+                        </button>
+                        <hr className='my-3' />
+                        <label htmlFor="" className='w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all text-slate-600 hover:bg-slate-100'>Settings</label>
                         <button onClick={() => handleViewChange('storesettings')}
                             className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${activeView === 'storesettings' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-100'}`}>
                             <Power className="h-5 w-5" />
@@ -898,10 +940,12 @@ export default function POSPage() {
                     {activeView === 'manageproduct' && (
                         <>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                {/* title */}
                                 <div>
                                     <h2 className="text-xl font-bold text-slate-800">📦 Manage Products</h2>
                                     <p className="text-sm text-slate-500">{totalManagedProducts} product{totalManagedProducts !== 1 ? 's' : ''}</p>
                                 </div>
+                                {/* search and add button */}
                                 <div className="flex gap-2">
                                     <Input
                                         placeholder="Search products..."
@@ -1000,13 +1044,133 @@ export default function POSPage() {
                         </>
                     )}
 
+                    {activeView === 'transactions' && (
+                        <>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">📋 Transaction History</h2>
+                                    <p className="text-sm text-slate-500">{totalTransactions} transaction{totalTransactions !== 1 ? 's' : ''}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Search by invoice ID..."
+                                        value={transactionSearch}
+                                        onChange={(e) => { setTransactionSearch(e.target.value); setTransactionPage(1); }}
+                                        className="w-full sm:w-48 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={fetchTransactions}
+                                        className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+                                    >
+                                        <Search className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Transactions Table */}
+                            <div className="bg-white rounded-xl shadow-sm border overflow-hidden mb-4">
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-gray-50">
+                                                <TableHead className="text-slate-600">Invoice ID</TableHead>
+                                                <TableHead className="text-center text-slate-600">Ticket</TableHead>
+                                                <TableHead className="text-center text-slate-600">Status</TableHead>
+                                                <TableHead className="text-right text-slate-600">Total</TableHead>
+                                                <TableHead className="text-center text-slate-600">Items</TableHead>
+                                                <TableHead className="text-slate-600">Date</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {loading ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                                                        Loading transactions...
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : transactions.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                                                        No transactions found
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                transactions.map((order) => (
+                                                    <TableRow key={order.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-mono text-sm text-slate-700">
+                                                            {order.invoice_id}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <span className="font-bold text-indigo-600">{order.short_id}</span>
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <Badge className={`text-xs ${order.status === 'PAID' ? 'bg-green-100 text-green-800 border-green-200' :
+                                                                order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                                                    'bg-red-100 text-red-800 border-red-200'
+                                                                }`}>
+                                                                {order.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold text-green-600">
+                                                            {formatPrice(order.total_amount)}
+                                                        </TableCell>
+                                                        <TableCell className="text-center text-slate-600">
+                                                            {order.item_count}
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-600 text-sm">
+                                                            {formatDateTime(order.created_at)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+
+                            {/* Pagination */}
+                            {!loading && totalTransactions > TRANSACTION_PAGE_SIZE && (
+                                <div className="flex items-center justify-center gap-2 sm:gap-4 mt-4 pb-4">
+                                    <Button variant="outline" size="sm"
+                                        onClick={() => setTransactionPage(prev => Math.max(1, prev - 1))}
+                                        disabled={transactionPage === 1}
+                                        className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
+                                        <ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline ml-1">Previous</span>
+                                    </Button>
+                                    <span className="text-sm text-slate-600">
+                                        {transactionPage} / {Math.ceil(totalTransactions / TRANSACTION_PAGE_SIZE)}
+                                    </span>
+                                    <Button variant="outline" size="sm"
+                                        onClick={() => setTransactionPage(prev => Math.min(Math.ceil(totalTransactions / TRANSACTION_PAGE_SIZE), prev + 1))}
+                                        disabled={transactionPage >= Math.ceil(totalTransactions / TRANSACTION_PAGE_SIZE)}
+                                        className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
+                                        <span className="hidden sm:inline mr-1">Next</span><ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {activeView === 'analytics' && (
+                        <>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">📦 Analythic</h2>
+                                    <p className="text-sm text-slate-500">{totalManagedProducts} product{totalManagedProducts !== 1 ? 's' : ''}</p>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
                     {activeView === 'storesettings' && (
                         <StoreSettings store={store} onUpdate={fetchStore} />
                     )}
                 </main>
 
                 {/* Right Sidebar - Cart (Desktop) */}
-                <aside className="hidden xl:flex w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex-col shadow-lg h-full overflow-hidden">
+                <aside className="hidden xl:flex w-80 max-w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex-col shadow-lg h-full overflow-hidden">
                     <div className="p-4 border-b border-slate-200 shrink-0">
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
@@ -1020,11 +1184,11 @@ export default function POSPage() {
                             {cart.length === 0 ? (
                                 <div className="text-center text-slate-400 py-8">Cart is empty</div>
                             ) : (
-                                <div className="space-y-3">
+                                <div className="space-y-3 max-w-72">
                                     {cart.map((item) => (
                                         <div key={item.product.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                                             <div className="flex justify-between items-start mb-2">
-                                                <h4 className="text-slate-800 text-sm font-medium truncate flex-1">{item.product.name}</h4>
+                                                <h4 className="text-slate-800 text-sm font-medium flex-1">{item.product.name}</h4>
                                                 <button onClick={() => removeFromCart(item.product.id)} className="text-slate-400 hover:text-red-500 ml-2 transition-colors">✕</button>
                                             </div>
                                             <div className="flex items-center justify-between">
@@ -1106,27 +1270,27 @@ export default function POSPage() {
 
             {/* Quantity Dialog */}
             <Dialog open={quantityDialogOpen} onOpenChange={setQuantityDialogOpen}>
-                <DialogContent className="max-w-[90vw] sm:max-w-[420px] bg-white border-slate-200 shadow-xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-slate-800">Enter Quantity</DialogTitle>
-                        <DialogDescription className="text-slate-500">{selectedProduct?.name} - {formatPrice(selectedProduct?.price || 0)}/kg</DialogDescription>
+                <DialogContent className="max-w-[360px] lg:max-w-[420px] xl:max-w-[500px] border-slate-200 shadow-xl">
+                    <DialogHeader className='max-w-[420px] xl:max-w-[500px]'>
+                        <DialogTitle className="text-slate-800 text-center">Enter Quantity</DialogTitle>
+                        <DialogDescription className="text-slate-500 text-center">{selectedProduct?.name} - {formatPrice(selectedProduct?.price || 0)}/kg</DialogDescription>
                     </DialogHeader>
-                    <div className="py-4 space-y-4">
+                    <div className="w-full xl:max-w-[500px] py-4 space-y-4 flex flex-col mx-auto">
                         {/* Mode Toggle */}
-                        <div className="flex gap-2">
+                        <div className="flex justify-end gap-1">
                             <Button
                                 variant={quantityInputMode === 'weight' ? 'default' : 'outline'}
                                 onClick={() => setQuantityInputMode('weight')}
-                                className={`flex-1 ${quantityInputMode === 'weight' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                                className={`flex-1 ${quantityInputMode === 'weight' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50 w-full sm:max-w-[320px]'}`}
                             >
-                                Berdasarkan Berat
+                                Dari Berat
                             </Button>
                             <Button
                                 variant={quantityInputMode === 'nominal' ? 'default' : 'outline'}
                                 onClick={() => setQuantityInputMode('nominal')}
-                                className={`flex-1 ${quantityInputMode === 'nominal' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                                className={`flex-1 ${quantityInputMode === 'nominal' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50 max-w-[320px]'}`}
                             >
-                                Berdasarkan Nominal
+                                Dari Nominal
                             </Button>
                         </div>
 
@@ -1141,7 +1305,8 @@ export default function POSPage() {
                                     step="0.1"
                                     value={quantity}
                                     onChange={(e) => setQuantity(e.target.value)}
-                                    className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-2xl focus:border-indigo-500 focus:ring-indigo-500"
+                                    placeholder='Masukan dengan contoh format 0.5, 0.6 Dst'
+                                    className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-md focus:border-indigo-500 focus:ring-indigo-500 w-full"
                                     autoFocus
                                 />
                             </div>
@@ -1156,7 +1321,7 @@ export default function POSPage() {
                                     value={nominalAmount}
                                     onChange={(e) => setNominalAmount(e.target.value)}
                                     placeholder="Masukkan jumlah uang"
-                                    className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-2xl focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="mt-2 bg-white border-slate-300 text-slate-800 text-center text-md focus:border-indigo-500 focus:ring-indigo-500"
                                     autoFocus
                                 />
                                 {/* Preview calculation */}
@@ -1171,9 +1336,9 @@ export default function POSPage() {
                             </div>
                         )}
                     </div>
-                    <DialogFooter className="flex-col sm:flex-row gap-2">
-                        <Button variant="outline" onClick={() => setQuantityDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">Cancel</Button>
-                        <Button onClick={handleQuantitySubmit} className="bg-linear-to-r from-green-500 to-emerald-500">Add to Cart</Button>
+                    <DialogFooter className="w-full xl:max-w-[500px] flex justify-end sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setQuantityDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100 flex-1">Cancel</Button>
+                        <Button onClick={handleQuantitySubmit} className="bg-linear-to-r from-green-500 to-emerald-500 flex-1">Add to Cart</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

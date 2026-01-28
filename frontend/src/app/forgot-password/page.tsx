@@ -36,13 +36,13 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-white p-4">
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <div className="text-6xl mb-4">🔐</div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Reset Password</h1>
-                    <p className="text-gray-400">We&apos;ll send you a link to reset your password</p>
+                    <h1 className="text-3xl font-bold text-black mb-2">Reset Password</h1>
+                    <p className="text-gray">We&apos;ll send you a link to reset your password</p>
                 </div>
 
                 <Card className="bg-white/10 border-white/20 backdrop-blur-xl shadow-2xl">
@@ -54,16 +54,16 @@ export default function ForgotPasswordPage() {
                                         <CheckCircle className="h-8 w-8 text-green-400" />
                                     </div>
                                 </div>
-                                <CardTitle className="text-2xl font-bold text-white text-center">Check Your Email</CardTitle>
-                                <CardDescription className="text-gray-400 text-center">
-                                    If an account exists with <span className="text-purple-400">{email}</span>, you will receive a password reset link shortly.
+                                <CardTitle className="text-2xl font-bold text-black text-center">Check Your Email</CardTitle>
+                                <CardDescription className="text-gray text-center">
+                                    If an account exists with <span className="text-purple-600">{email}</span>, you will receive a password reset link shortly.
                                 </CardDescription>
                             </CardHeader>
                             <CardFooter className="flex flex-col space-y-4">
                                 <Link href="/login" className="w-full">
                                     <Button
                                         variant="outline"
-                                        className="w-full border-white/20 text-white hover:bg-white/10"
+                                        className="w-full border-white/20 bg-amber-400 text-black hover:bg-white hover:border-black"
                                     >
                                         <ArrowLeft className="mr-2 h-4 w-4" />
                                         Back to Login
@@ -74,7 +74,7 @@ export default function ForgotPasswordPage() {
                     ) : (
                         <>
                             <CardHeader className="space-y-1 pb-4">
-                                <CardTitle className="text-2xl font-bold text-white text-center">Forgot Password</CardTitle>
+                                <CardTitle className="text-2xl font-bold text-black text-center">Forgot Password</CardTitle>
                                 <CardDescription className="text-gray-400 text-center">
                                     Enter your email address and we&apos;ll send you a reset link
                                 </CardDescription>
@@ -88,7 +88,7 @@ export default function ForgotPasswordPage() {
                                         </div>
                                     )}
 
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 mb-4">
                                         <Label htmlFor="email" className="text-gray-300">Email Address</Label>
                                         <Input
                                             id="email"
@@ -136,7 +136,7 @@ export default function ForgotPasswordPage() {
 
                 {/* Footer */}
                 <footer className="mt-8 text-center text-sm text-gray-500">
-                    <p>Built with Next.js, FastAPI & Supabase</p>
+                    <p>Built 2026 by Cakatech</p>
                 </footer>
             </div>
         </div>

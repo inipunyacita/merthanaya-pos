@@ -22,9 +22,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshUser = useCallback(async () => {
         try {
             const currentUser = await getCurrentUser();
-            setUser(currentUser);
-        } catch {
-            setUser(null);
+            // Only update if we got a valid user, don't clear on null/error
+            // This prevents race conditions from logging out the user
+            if (currentUser) {
+                console.log('[AuthContext] refreshUser: Got user', currentUser.email);
+                setUser(currentUser);
+            } else {
+                console.log('[AuthContext] refreshUser: No user returned (keeping current state if any)');
+                // Don't setUser(null) here - let onAuthStateChange handle sign-out events
+            }
+        } catch (e) {
+            console.error('[AuthContext] refreshUser error (keeping current user state):', e);
+            // Don't setUser(null) on errors - this was causing the auto-logout
         }
     }, []);
 
@@ -59,11 +68,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for auth state changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('[AuthContext] Auth state change:', event);
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
                 if (session) {
                     await refreshUser();
                 }
-            } else if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+            } else if (event === 'SIGNED_OUT') {
                 setUser(null);
                 setLoading(false);
             }

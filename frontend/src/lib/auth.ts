@@ -127,7 +127,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         // Add timeout to getUser() to prevent hanging on stale sessions
         const userPromise = supabase.auth.getUser();
         const timeoutPromise = new Promise<{ data: { user: null }, error: any }>((resolve) => {
-            setTimeout(() => resolve({ data: { user: null }, error: { name: 'TimeoutError', message: 'Auth check timed out' } }), 2000);
+            setTimeout(() => resolve({ data: { user: null }, error: { name: 'TimeoutError', message: 'Auth check timed out' } }), 3000);
         });
 
         const { data: { user }, error: authError } = await Promise.race([userPromise, timeoutPromise]) as any;
@@ -135,25 +135,25 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         if (authError) {
             // AuthSessionMissingError is expected when user is not logged in
             if (authError.name === 'AuthSessionMissingError') {
+                console.log('[getCurrentUser] No session found (expected for logged out users)');
                 return null;
             }
-            // Handle invalid refresh token or timeout - clear session and return null
-            if (authError.message?.includes('Refresh Token') || authError.message?.includes('refresh_token') || authError.name === 'TimeoutError') {
-                console.warn('[getCurrentUser] Auth error or timeout, clearing session...', authError.message);
-
-                // Only clear session if not a network timeout to be safe
-                if (authError.name !== 'TimeoutError') {
-                    await supabase.auth.signOut();
-                }
+            // Just log errors, don't sign out - let the auth state listener handle it
+            if (authError.name === 'TimeoutError') {
+                console.warn('[getCurrentUser] Auth check timed out, returning null (NOT signing out)');
                 return null;
             }
-            console.error('[getCurrentUser] Auth error:', authError);
+            console.error('[getCurrentUser] Auth error:', authError.name, authError.message);
+            // Don't auto-signout on errors - just return null and let the caller handle it
             return null;
         }
 
         if (!user) {
+            console.log('[getCurrentUser] No user returned from getUser()');
             return null;
         }
+
+        console.log('[getCurrentUser] Got user:', user.id, user.email);
 
         // Try to get profile from users table (with short timeout for fast loading)
         let profile = null;
@@ -197,12 +197,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         };
     } catch (err) {
         console.error('[getCurrentUser] Unexpected error:', err);
-        // Auto-clear session on unexpected errors to prevent stuck states
-        try {
-            await supabase.auth.signOut();
-        } catch (e) {
-            // Ignore signout errors
-        }
+        // Don't auto-signout on unexpected errors - just return null
+        // The user might just have a network hiccup, no need to force logout
         return null;
     }
 }
