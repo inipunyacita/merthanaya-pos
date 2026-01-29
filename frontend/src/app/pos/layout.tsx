@@ -1,6 +1,7 @@
 'use client';
 
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { POSProvider } from '@/components/pos';
 
 export default function POSLayout({
     children,
@@ -9,7 +10,9 @@ export default function POSLayout({
 }) {
     return (
         <ProtectedRoute>
-            {children}
+            <POSProvider>
+                {children}
+            </POSProvider>
         </ProtectedRoute>
     );
 }
