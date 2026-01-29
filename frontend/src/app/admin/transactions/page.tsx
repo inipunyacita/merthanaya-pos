@@ -7,9 +7,10 @@ import {
     Search,
     ChevronLeft,
     ChevronRight,
+    Printer,
 } from 'lucide-react';
 import { orderApi } from '@/lib/api';
-import { OrderSummary } from '@/types';
+import { OrderSummary, Order } from '@/types';
 import { toast, Toaster } from 'sonner';
 import { AdminLayout } from '@/components/admin';
 
@@ -19,6 +20,10 @@ export default function TransactionsPage() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+
+    // Invoice dialog state
+    const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+    const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
     // Filters
     const [status, setStatus] = useState<string>('');
@@ -55,6 +60,82 @@ export default function TransactionsPage() {
     const handleSearch = () => {
         setPage(1);
         fetchTransactions();
+    };
+
+    // Handle print invoice
+    const handlePrintInvoice = async (orderId: string) => {
+        try {
+            const order = await orderApi.get(orderId);
+            setInvoiceOrder(order);
+            setInvoiceDialogOpen(true);
+        } catch (error) {
+            console.error('Failed to fetch order details:', error);
+            toast.error('Failed to load order details');
+        }
+    };
+
+    const printInvoice = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow || !invoiceOrder) return;
+
+        const formatPrice = (price: number) => {
+            const rounded = Math.round(price);
+            const formatted = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return `Rp ${formatted}`;
+        };
+
+        const formatDateTime = (dateStr: string) => {
+            return new Date(dateStr).toLocaleString('id-ID', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Invoice ${invoiceOrder.invoice_id}</title>
+                <style>
+                    body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .store-name { font-size: 18px; font-weight: bold; }
+                    .invoice-id { font-size: 12px; color: #666; }
+                    .divider { border-top: 1px dashed #000; margin: 10px 0; }
+                    .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; }
+                    .total { font-size: 16px; font-weight: bold; margin-top: 10px; }
+                    .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="store-name">Merthanaya</div>
+                    <div class="invoice-id">${invoiceOrder.invoice_id}</div>
+                    <div class="invoice-id">Ticket: ${invoiceOrder.short_id}</div>
+                    <div class="invoice-id">${formatDateTime(invoiceOrder.created_at)}</div>
+                </div>
+                <div class="divider"></div>
+                ${invoiceOrder.items.map(item => `
+                    <div class="item">
+                        <span>${item.product_name} x${item.quantity}</span>
+                        <span>${formatPrice(item.subtotal)}</span>
+                    </div>
+                `).join('')}
+                <div class="divider"></div>
+                <div class="item total">
+                    <span>TOTAL</span>
+                    <span>${formatPrice(invoiceOrder.total_amount)}</span>
+                </div>
+                <div class="footer">
+                    <p>Thank you for your purchase!</p>
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
     };
 
     const formatCurrency = (value: number) => {
@@ -236,31 +317,32 @@ export default function TransactionsPage() {
                     <table className="w-full min-w-[600px]">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Invoice ID</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Invoice ID</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Ticket</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Total</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Total</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Items</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date & Time</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Date & Time</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Invoice</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                                         Loading...
                                     </td>
                                 </tr>
                             ) : orders.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                                         No transactions found
                                     </td>
                                 </tr>
                             ) : (
                                 orders.map(order => (
                                     <tr key={order.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3 text-center">
                                             <span className="font-mono text-sm">{order.invoice_id}</span>
                                         </td>
                                         <td className="px-4 py-3 text-center">
@@ -271,14 +353,22 @@ export default function TransactionsPage() {
                                                 {order.status}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-right font-semibold">
+                                        <td className="px-4 py-3 text-center font-semibold">
                                             {formatCurrency(order.total_amount)}
                                         </td>
                                         <td className="px-4 py-3 text-center text-gray-600">
                                             {order.item_count}
                                         </td>
-                                        <td className="px-4 py-3 text-gray-600 text-sm">
+                                        <td className="px-4 py-3 text-gray-600 text-sm text-center">
                                             {formatDateTime(order.created_at)}
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-600 text-sm text-center">
+                                            <button
+                                                onClick={() => handlePrintInvoice(order.id)}
+                                                className="text-blue-600 hover:underline"
+                                            >
+                                                <Printer className="h-4 w-4 sm:mr-1" />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))
@@ -327,6 +417,56 @@ export default function TransactionsPage() {
                             <span className="hidden sm:inline">Next</span>
                             <ChevronRight className="w-4 h-4" />
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Invoice Dialog */}
+            {invoiceDialogOpen && invoiceOrder && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-auto">
+                        <div className="p-6">
+                            <div className="text-center mb-4">
+                                <h2 className="text-xl font-bold">Invoice</h2>
+                                <p className="text-sm text-gray-500">{invoiceOrder.invoice_id}</p>
+                                <p className="text-lg font-semibold text-gray-800">Ticket: {invoiceOrder.short_id}</p>
+                                <p className="text-xs text-gray-400">{formatDateTime(invoiceOrder.created_at)}</p>
+                            </div>
+
+                            <div className="border-t border-dashed my-4"></div>
+
+                            <div className="space-y-2">
+                                {invoiceOrder.items.map((item) => (
+                                    <div key={item.id} className="flex justify-between text-sm">
+                                        <span>{item.product_name} x{item.quantity}</span>
+                                        <span>{formatCurrency(item.subtotal)}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="border-t border-dashed my-4"></div>
+
+                            <div className="flex justify-between font-bold text-lg">
+                                <span>TOTAL</span>
+                                <span>{formatCurrency(invoiceOrder.total_amount)}</span>
+                            </div>
+
+                            <div className="flex gap-2 mt-6">
+                                <button
+                                    onClick={() => setInvoiceDialogOpen(false)}
+                                    className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    onClick={printInvoice}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    Print
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

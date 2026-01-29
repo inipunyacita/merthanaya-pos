@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 const TRANSACTION_PAGE_SIZE = 10;
 
 export default function TransactionsPage() {
-    const { formatPrice, formatDateTime } = usePOS();
+    const { formatPrice, formatDateTime, handlePrintInvoice } = usePOS();
 
     const [transactions, setTransactions] = useState<OrderSummary[]>([]);
     const [loading, setLoading] = useState(true);
@@ -72,12 +72,13 @@ export default function TransactionsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-gray-50">
-                                <TableHead className="text-slate-600">Invoice ID</TableHead>
+                                <TableHead className="text-center text-slate-600">Invoice ID</TableHead>
                                 <TableHead className="text-center text-slate-600">Ticket</TableHead>
                                 <TableHead className="text-center text-slate-600">Status</TableHead>
-                                <TableHead className="text-right text-slate-600">Total</TableHead>
+                                <TableHead className="text-center text-slate-600">Total</TableHead>
                                 <TableHead className="text-center text-slate-600">Items</TableHead>
-                                <TableHead className="text-slate-600">Date</TableHead>
+                                <TableHead className="text-slate-600 text-center">Date</TableHead>
+                                <TableHead className="text-slate-600 text-center">Invoice</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -96,7 +97,7 @@ export default function TransactionsPage() {
                             ) : (
                                 transactions.map((order) => (
                                     <TableRow key={order.id} className="hover:bg-gray-50">
-                                        <TableCell className="font-mono text-sm text-slate-700">
+                                        <TableCell className="text-center font-mono text-sm text-slate-700">
                                             {order.invoice_id}
                                         </TableCell>
                                         <TableCell className="text-center">
@@ -110,14 +111,24 @@ export default function TransactionsPage() {
                                                 {order.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right font-semibold text-green-600">
+                                        <TableCell className="text-center font-semibold text-green-600">
                                             {formatPrice(order.total_amount)}
                                         </TableCell>
                                         <TableCell className="text-center text-slate-600">
                                             {order.item_count}
                                         </TableCell>
-                                        <TableCell className="text-slate-600 text-sm">
+                                        <TableCell className="text-center text-slate-600 text-sm">
                                             {formatDateTime(order.created_at)}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handlePrintInvoice(order.id)}
+                                                className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+                                            >
+                                                <Printer className="h-4 w-4" />
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))

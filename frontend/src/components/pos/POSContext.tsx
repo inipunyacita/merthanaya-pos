@@ -45,6 +45,8 @@ interface POSContextType {
     setNominalAmount: (amount: string) => void;
     handleQuantitySubmit: () => void;
     handleProductClick: (product: Product) => void;
+    unit: string;
+    setUnit: (unit: string) => void;
 
     // Scanner
     scannerDialogOpen: boolean;
@@ -67,6 +69,9 @@ interface POSContextType {
     setDetailsDialogOpen: (open: boolean) => void;
     invoiceDialogOpen: boolean;
     setInvoiceDialogOpen: (open: boolean) => void;
+    invoiceOrder: Order | null;
+    setInvoiceOrder: (order: Order | null) => void;
+    printInvoice: () => void;
     processing: boolean;
     handleViewDetails: (orderId: string) => Promise<void>;
     handlePrintInvoice: (orderId: string) => Promise<void>;
@@ -128,6 +133,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
     const [quantity, setQuantity] = useState<string>('1');
     const [quantityInputMode, setQuantityInputMode] = useState<'weight' | 'nominal'>('weight');
     const [nominalAmount, setNominalAmount] = useState<string>('');
+    const [unit, setUnit] = useState<string>('');
 
     // Scanner State
     const [scannerDialogOpen, setScannerDialogOpen] = useState(false);
@@ -143,6 +149,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+    const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
     const [processing, setProcessing] = useState(false);
 
     // Product Form State
@@ -347,6 +354,70 @@ export function POSProvider({ children }: { children: ReactNode }) {
         }
     }, [refreshPendingOrders]);
 
+    const printInvoice = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow || !invoiceOrder) return;
+
+        const formatPrice = (price: number) => {
+            const rounded = Math.round(price);
+            const formatted = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return `Rp ${formatted}`;
+        };
+
+        const formatDateTime = (dateStr: string) => {
+            return new Date(dateStr).toLocaleString('id-ID', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Invoice ${invoiceOrder.invoice_id}</title>
+                <style>
+                    body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .store-name { font-size: 18px; font-weight: bold; }
+                    .invoice-id { font-size: 12px; color: #666; }
+                    .divider { border-top: 1px dashed #000; margin: 10px 0; }
+                    .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; }
+                    .total { font-size: 16px; font-weight: bold; margin-top: 10px; }
+                    .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="store-name">Merthanaya</div>
+                    <div class="invoice-id">${invoiceOrder.invoice_id}</div>
+                    <div class="invoice-id">Ticket: ${invoiceOrder.short_id}</div>
+                    <div class="invoice-id">${formatDateTime(invoiceOrder.created_at)}</div>
+                </div>
+                <div class="divider"></div>
+                ${invoiceOrder.items.map(item => `
+                    <div class="item">
+                        <span>${item.product_name} x${item.quantity}</span>
+                        <span>${formatPrice(item.subtotal)}</span>
+                    </div>
+                `).join('')}
+                <div class="divider"></div>
+                <div class="item total">
+                    <span>TOTAL</span>
+                    <span>${formatPrice(invoiceOrder.total_amount)}</span>
+                </div>
+                <div class="footer">
+                    <p>Thank you for your purchase!</p>
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    };
+
     // === PRODUCT MANAGEMENT FUNCTIONS ===
     const resetProductForm = useCallback(() => {
         setFormData({
@@ -470,12 +541,13 @@ export function POSProvider({ children }: { children: ReactNode }) {
         cartOpen, setCartOpen,
         quantityDialogOpen, setQuantityDialogOpen, selectedProduct, setSelectedProduct,
         quantity, setQuantity, quantityInputMode, setQuantityInputMode,
+        unit, setUnit,
         nominalAmount, setNominalAmount, handleQuantitySubmit, handleProductClick,
         scannerDialogOpen, setScannerDialogOpen, handleBarcodeScan,
         ticketDialogOpen, setTicketDialogOpen, lastTicket,
         submitting, handlePrintBill,
         selectedOrder, setSelectedOrder, detailsDialogOpen, setDetailsDialogOpen,
-        invoiceDialogOpen, setInvoiceDialogOpen, processing,
+        invoiceDialogOpen, setInvoiceDialogOpen, processing, invoiceOrder, setInvoiceOrder, printInvoice,
         handleViewDetails, handlePrintInvoice, handlePayOrder, handleCancelOrder,
         productDialogOpen, setProductDialogOpen, editingProduct, setEditingProduct,
         formData, setFormData, productScannerOpen, setProductScannerOpen,

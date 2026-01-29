@@ -22,6 +22,7 @@ class OrderItemResponse(BaseModel):
     quantity: Decimal
     price_at_purchase: Decimal
     subtotal: Decimal
+    unit: Optional[str] = None
 
 class OrderResponse(BaseModel):
     """Schema for order responses."""

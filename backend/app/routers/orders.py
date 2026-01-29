@@ -107,7 +107,8 @@ async def create_order(
                 "product_name": product["name"],
                 "quantity": float(item.quantity),
                 "price_at_purchase": float(price),
-                "subtotal": float(subtotal)
+                "subtotal": float(subtotal),
+                "unit": product.get("unit_type", "item")
             })
         
         # Create order - auto-set runner_id to current user

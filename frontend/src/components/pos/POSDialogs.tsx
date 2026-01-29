@@ -16,6 +16,7 @@ export function POSDialogs() {
         quantityDialogOpen, setQuantityDialogOpen,
         selectedProduct,
         quantity, setQuantity,
+        unit, setUnit,
         quantityInputMode, setQuantityInputMode,
         nominalAmount, setNominalAmount,
         handleQuantitySubmit,
@@ -217,24 +218,26 @@ export function POSDialogs() {
 
             {/* Invoice Dialog (for printing) */}
             <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                <DialogContent className="max-w-[90vw] sm:max-w-[400px] bg-white border-slate-200 shadow-xl p-0 overflow-hidden print:shadow-none print:border-none">
+                <DialogContent showCloseButton={false} className="max-w-[90vw] sm:max-w-[400px] bg-white border-slate-200 shadow-xl p-0 overflow-hidden print:shadow-none print:border-none">
                     <DialogTitle className="sr-only">Invoice {selectedOrder?.short_id}</DialogTitle>
-                    <div className="flex flex-col items-center justify-center p-6 border-b border-slate-100 print:pb-4">
-                        {store?.logo_url ? (
-                            <img src={store.logo_url} alt={store.name} className="h-16 w-auto mb-3 object-contain" />
-                        ) : (
-                            <img src="/merthanayafix.svg" alt="Default Logo" className="h-12 w-auto mb-3 object-contain" />
-                        )}
-                        <h2 className="text-xl font-bold text-slate-800">{store?.name}</h2>
-                        {store?.address && <p className="text-xs text-slate-500 mt-1">{store.address}</p>}
-                        {store?.phone && <p className="text-xs text-slate-500">{store.phone}</p>}
-                    </div>
+                    <div className="flex justify-between">
+                        <div className="flex flex-col items-center justify-center p-6 border-b border-slate-100 print:pb-4">
+                            {store?.logo_url ? (
+                                <img src={store.logo_url} alt={store.name} className="h-8 w-auto mb-3 object-contain" />
+                            ) : (
+                                <img src="/merthanayafix.svg" alt="Default Logo" className="h-12 w-auto mb-3 object-contain" />
+                            )}
+                            <h2 className="text-xl font-bold text-slate-800">{store?.name}</h2>
+                            {store?.address && <p className="text-xs text-slate-500 mt-1">{store.address}</p>}
+                            {store?.phone && <p className="text-xs text-slate-500">{store.phone}</p>}
+                        </div>
 
-                    <div className="bg-linear-to-r from-emerald-600 to-green-600 text-white p-3 text-center print:bg-white print:text-black print:border-y print:border-slate-200">
-                        <div className="text-xs uppercase tracking-wider opacity-80 print:opacity-100">Invoice</div>
-                        <div className="text-2xl font-bold mt-1">{selectedOrder?.short_id}</div>
-                        <div className="text-xs font-mono mt-1 opacity-90">{selectedOrder?.invoice_id}</div>
-                        <div className="text-[10px] opacity-70 mt-1 print:opacity-100">{selectedOrder && formatDateTime(selectedOrder.created_at)}</div>
+                        <div className="bg-white text-black p-3 text-center print:bg-white print:text-black print:border-y print:border-slate-200">
+                            <div className="text-xs uppercase tracking-wider opacity-80 print:opacity-100">Invoice</div>
+                            <div className="text-2xl font-bold mt-1">{selectedOrder?.short_id}</div>
+                            <div className="text-xs font-mono mt-1 opacity-90">{selectedOrder?.invoice_id}</div>
+                            <div className="text-[10px] opacity-70 mt-1 print:opacity-100">{selectedOrder && formatDateTime(selectedOrder.created_at)}</div>
+                        </div>
                     </div>
                     <div className="p-4">
                         <div className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Order Details</div>
@@ -244,7 +247,7 @@ export function POSDialogs() {
                                     <div key={item.id} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
                                         <div className="flex-1">
                                             <div className="text-sm font-medium text-slate-800">{item.product_name}</div>
-                                            <div className="text-xs text-slate-500">{item.quantity} × {formatPrice(item.price_at_purchase)}</div>
+                                            <div className="text-xs text-slate-500">{item.quantity} {item.unit === 'kg' ? 'Kg' : item.unit === 'pcs' ? 'Pcs' : item.unit === 'item' ? 'Item' : item.unit} × {formatPrice(item.price_at_purchase)}</div>
                                         </div>
                                         <div className="text-sm font-semibold text-slate-800">{formatPrice(item.subtotal)}</div>
                                     </div>
@@ -255,7 +258,7 @@ export function POSDialogs() {
                     <div className="bg-slate-50 p-4 border-t border-slate-200 text-center">
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-sm text-slate-600">Total ({selectedOrder?.items.length || 0} items)</span>
-                            <span className="text-2xl font-bold text-green-600">{formatPrice(selectedOrder?.total_amount || 0)}</span>
+                            <span className="text-xl font-bold text-green-600">{formatPrice(selectedOrder?.total_amount || 0)}</span>
                         </div>
                         {store?.receipt_footer && (
                             <div className="pt-4 border-t border-dashed border-slate-300">

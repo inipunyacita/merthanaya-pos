@@ -47,6 +47,7 @@ export interface OrderItem {
     quantity: number;
     price_at_purchase: number;
     subtotal: number;
+    unit?: 'kg' | 'pcs' | 'item' | string;
 }
 
 export interface Order {
