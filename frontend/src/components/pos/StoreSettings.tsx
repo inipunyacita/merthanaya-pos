@@ -31,6 +31,7 @@ export function StoreSettings({ store, onUpdate }: StoreSettingsProps) {
         if (store) {
             setFormData({
                 name: store.name || '',
+                logo_url: store.logo_url || '',
                 address: store.address || '',
                 phone: store.phone || '',
                 receipt_footer: store.receipt_footer || '',
