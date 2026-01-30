@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Search, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,17 @@ import { toast } from 'sonner';
 
 const TRANSACTION_PAGE_SIZE = 10;
 
+// CSV-safe date formatter (no commas that would break CSV columns)
+const formatDateTimeCSV = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const month = date.toLocaleString('id-ID', { month: 'short' });
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${day} ${month} ${year} ${hours}:${minutes}`;
+};
+
 export default function TransactionsPage() {
     const { formatPrice, formatDateTime, handlePrintInvoice } = usePOS();
 
@@ -21,6 +32,11 @@ export default function TransactionsPage() {
     const [transactionSearch, setTransactionSearch] = useState('');
     const [transactionPage, setTransactionPage] = useState(1);
     const [totalTransactions, setTotalTransactions] = useState(0);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+
+    // Filters
+    const [status, setStatus] = useState<string>('');
 
     const fetchTransactions = useCallback(async () => {
         try {
@@ -28,7 +44,10 @@ export default function TransactionsPage() {
             const response = await orderApi.getHistory({
                 page: transactionPage,
                 page_size: TRANSACTION_PAGE_SIZE,
-                search: transactionSearch || undefined
+                search: transactionSearch || undefined,
+                status: status || undefined,
+                date_from: dateFrom || undefined,
+                date_to: dateTo || undefined
             });
             setTransactions(response.orders);
             setTotalTransactions(response.total);
@@ -38,30 +57,128 @@ export default function TransactionsPage() {
         } finally {
             setLoading(false);
         }
-    }, [transactionPage, transactionSearch]);
+    }, [transactionPage, transactionSearch, status, dateFrom, dateTo]);
 
     useEffect(() => {
         fetchTransactions();
     }, [fetchTransactions]);
 
+    const handleSearch = () => {
+        setTransactionPage(1);
+        fetchTransactions();
+    }
+
+    const clearFilter = () => {
+        setTransactionSearch('');
+        setStatus('');
+        setDateFrom('');
+        setDateTo('');
+        setTransactionPage(1);
+    }
+
+    const handleExport = () => {
+        if (transactions.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        const headers = ['Invoice ID', 'Ticket', 'Status', 'Total Amount', 'Items', 'Date'];
+        const rows = transactions.map(order => [
+            order.invoice_id,
+            order.short_id,
+            order.status,
+            order.total_amount,
+            order.item_count,
+            formatDateTimeCSV(order.created_at)
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+
+        toast.success('CSV exported successfully');
+    };
+
     return (
         <POSLayout title="📋 Transaction History" description={`${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}`} showCart={false}>
+            {/* Search */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div className="hidden sm:block" /> {/* Spacer */}
+                {/* export */}
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExport}
+                    className="gap-2 px-3 sm:px-4 py-2 bg-green-600 rounded-lg hover:bg-green-700 text-sm text-white hover:text-white"
+                >
+                    <Download className="w-4 h-4" />Export
+                </Button>
                 <div className="flex gap-2">
-                    <Input
-                        placeholder="Search by invoice ID..."
-                        value={transactionSearch}
-                        onChange={(e) => { setTransactionSearch(e.target.value); setTransactionPage(1); }}
-                        className="w-full sm:w-48 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
-                    />
+
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                            type="text"
+                            placeholder="Search by invoice ID..."
+                            value={transactionSearch}
+                            onChange={(e) => setTransactionSearch(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            className="w-full sm:w-48 pl-10 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
+                        />
+                    </div>
+                    {/* Status Filter */}
+                    <div>
+                        <select
+                            value={status}
+                            onChange={(e) => { setStatus(e.target.value); setTransactionPage(1); }}
+                            className="w-full px-3 py-2 border rounded-lg bg-white text-sm"
+                        >
+                            <option value="">All</option>
+                            <option value="PAID">Paid</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
+                    {/* From Date */}
+                    <div>
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => { setDateFrom(e.target.value); setTransactionPage(1); }}
+                            className="w-full px-3 py-2 border bg-white rounded-lg text-sm"
+                        />
+                    </div>
+
+                    {/* To Date */}
+                    <div>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => { setDateTo(e.target.value); setTransactionPage(1); }}
+                            className="w-full px-3 py-2 border bg-white rounded-lg text-sm"
+                        />
+                    </div>
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={fetchTransactions}
+                        onClick={handleSearch}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:text-white"
+                    >
+                        Search
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearFilter}
                         className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
                     >
-                        <Search className="h-4 w-4" />
+                        Clear
                     </Button>
                 </div>
             </div>
