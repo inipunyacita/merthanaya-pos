@@ -42,10 +42,25 @@ def format_daily_id(number: int) -> str:
     return f"#{number:03d}"
 
 
-def generate_invoice_id(daily_id: int) -> str:
-    """Generate invoice ID in format INV-YYYYMMDD-XXX."""
-    today = date.today().strftime("%Y%m%d")
-    return f"INV-{today}-{daily_id:03d}"
+def generate_invoice_id(daily_id: int, created_at: Optional[str] = None) -> str:
+    """Generate invoice ID in format INV-YYYYMMDD-XXX.
+    
+    Args:
+        daily_id: The daily order number
+        created_at: Optional ISO date string from order's created_at. 
+                    If provided, uses this date. Otherwise uses today.
+    """
+    if created_at:
+        # Parse the created_at string and extract date
+        try:
+            from datetime import datetime as dt
+            parsed = dt.fromisoformat(created_at.replace("Z", "+00:00"))
+            date_str = parsed.strftime("%Y%m%d")
+        except (ValueError, AttributeError):
+            date_str = date.today().strftime("%Y%m%d")
+    else:
+        date_str = date.today().strftime("%Y%m%d")
+    return f"INV-{date_str}-{daily_id:03d}"
 
 
 @router.post("/", response_model=OrderResponse, status_code=201)
@@ -195,7 +210,7 @@ async def get_pending_orders(
                 id=order_data["id"],
                 daily_id=order_data["daily_id"],
                 short_id=format_daily_id(order_data["daily_id"]),
-                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
+                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
                 total_amount=Decimal(str(order_data["total_amount"])),
                 status=order_data["status"],
                 item_count=item_count,
@@ -259,7 +274,7 @@ async def get_paid_orders(
                 id=order_data["id"],
                 daily_id=order_data["daily_id"],
                 short_id=format_daily_id(order_data["daily_id"]),
-                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
+                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
                 total_amount=Decimal(str(order_data["total_amount"])),
                 status=order_data["status"],
                 item_count=item_count,
@@ -299,7 +314,7 @@ async def get_order(order_id: UUID):
             id=order_data["id"],
             daily_id=order_data["daily_id"],
             short_id=format_daily_id(order_data["daily_id"]),
-            invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
+            invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
             runner_id=order_data.get("runner_id"),
             total_amount=Decimal(str(order_data["total_amount"])),
             status=order_data["status"],
@@ -345,7 +360,7 @@ async def mark_order_paid(order_id: UUID):
         return PaymentResponse(
             id=order_result.data["id"],
             short_id=format_daily_id(order_result.data["daily_id"]),
-            invoice_id=order_result.data.get("invoice_id") or generate_invoice_id(order_result.data["daily_id"]),
+            invoice_id=order_result.data.get("invoice_id") or generate_invoice_id(order_result.data["daily_id"], order_result.data.get("created_at")),
             status="PAID",
             paid_at=now
         )
@@ -469,7 +484,7 @@ async def get_transaction_history(
                 id=order_data["id"],
                 daily_id=order_data["daily_id"],
                 short_id=format_daily_id(order_data["daily_id"]),
-                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"]),
+                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
                 total_amount=Decimal(str(order_data["total_amount"])),
                 status=order_data["status"],
                 item_count=item_count,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
@@ -16,6 +16,7 @@ from app.models.analytics import (
     HourlyDistribution,
     HourlyDistributionResponse,
 )
+from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -33,26 +34,34 @@ def get_date_range(days: int = 7, date_from: Optional[date] = None, date_to: Opt
 async def get_sales_summary(
     days: int = Query(7, ge=1, le=365, description="Number of days to include"),
     date_from: Optional[date] = Query(None, description="Start date (overrides days)"),
-    date_to: Optional[date] = Query(None, description="End date (overrides days)")
+    date_to: Optional[date] = Query(None, description="End date (overrides days)"),
+    current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
     Get sales summary for a date range.
     Returns total revenue, order count, average order value, and items sold.
+    Staff users only see their own orders, admin sees all.
     """
     try:
         db = get_db()
         start_date, end_date = get_date_range(days, date_from, date_to)
         
         # Query paid orders within date range
-        orders_result = db.table("orders").select(
-            "id, total_amount, created_at"
+        query = db.table("orders").select(
+            "id, total_amount, created_at, runner_id"
         ).eq(
             "status", "PAID"
         ).gte(
             "created_at", f"{start_date}T00:00:00"
         ).lte(
             "created_at", f"{end_date}T23:59:59"
-        ).execute()
+        )
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
+        
+        orders_result = query.execute()
         
         orders = orders_result.data or []
         
@@ -95,17 +104,19 @@ async def get_top_products(
     days: int = Query(7, ge=1, le=365),
     limit: int = Query(10, ge=1, le=50),
     date_from: Optional[date] = None,
-    date_to: Optional[date] = None
+    date_to: Optional[date] = None,
+    current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
     Get top selling products by revenue.
+    Staff users only see their own orders, admin sees all.
     """
     try:
         db = get_db()
         start_date, end_date = get_date_range(days, date_from, date_to)
         
         # Get paid orders in date range
-        orders_result = db.table("orders").select(
+        query = db.table("orders").select(
             "id"
         ).eq(
             "status", "PAID"
@@ -113,7 +124,13 @@ async def get_top_products(
             "created_at", f"{start_date}T00:00:00"
         ).lte(
             "created_at", f"{end_date}T23:59:59"
-        ).execute()
+        )
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
+        
+        orders_result = query.execute()
         
         order_ids = [o["id"] for o in orders_result.data or []]
         
@@ -184,17 +201,19 @@ async def get_top_products(
 async def get_sales_by_category(
     days: int = Query(7, ge=1, le=365),
     date_from: Optional[date] = None,
-    date_to: Optional[date] = None
+    date_to: Optional[date] = None,
+    current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
     Get sales breakdown by product category.
+    Staff users only see their own orders, admin sees all.
     """
     try:
         db = get_db()
         start_date, end_date = get_date_range(days, date_from, date_to)
         
         # Get paid orders
-        orders_result = db.table("orders").select(
+        query = db.table("orders").select(
             "id"
         ).eq(
             "status", "PAID"
@@ -202,7 +221,13 @@ async def get_sales_by_category(
             "created_at", f"{start_date}T00:00:00"
         ).lte(
             "created_at", f"{end_date}T23:59:59"
-        ).execute()
+        )
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
+        
+        orders_result = query.execute()
         
         order_ids = [o["id"] for o in orders_result.data or []]
         
@@ -266,17 +291,19 @@ async def get_sales_by_category(
 async def get_sales_trend(
     days: int = Query(7, ge=1, le=90),
     date_from: Optional[date] = None,
-    date_to: Optional[date] = None
+    date_to: Optional[date] = None,
+    current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
     Get daily sales data for trend charts.
+    Staff users only see their own orders, admin sees all.
     """
     try:
         db = get_db()
         start_date, end_date = get_date_range(days, date_from, date_to)
         
         # Get paid orders
-        orders_result = db.table("orders").select(
+        query = db.table("orders").select(
             "total_amount, created_at"
         ).eq(
             "status", "PAID"
@@ -284,7 +311,13 @@ async def get_sales_trend(
             "created_at", f"{start_date}T00:00:00"
         ).lte(
             "created_at", f"{end_date}T23:59:59"
-        ).execute()
+        )
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
+        
+        orders_result = query.execute()
         
         # Group by date
         daily_data = {}
@@ -326,17 +359,19 @@ async def get_sales_trend(
 async def get_hourly_distribution(
     days: int = Query(7, ge=1, le=365),
     date_from: Optional[date] = None,
-    date_to: Optional[date] = None
+    date_to: Optional[date] = None,
+    current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
     Get order distribution by hour of day.
+    Staff users only see their own orders, admin sees all.
     """
     try:
         db = get_db()
         start_date, end_date = get_date_range(days, date_from, date_to)
         
         # Get paid orders
-        orders_result = db.table("orders").select(
+        query = db.table("orders").select(
             "total_amount, created_at"
         ).eq(
             "status", "PAID"
@@ -344,7 +379,13 @@ async def get_hourly_distribution(
             "created_at", f"{start_date}T00:00:00"
         ).lte(
             "created_at", f"{end_date}T23:59:59"
-        ).execute()
+        )
+        
+        # Staff users only see their own orders
+        if current_user and current_user.get("role") == "staff":
+            query = query.eq("runner_id", current_user["id"])
+        
+        orders_result = query.execute()
         
         # Initialize all hours
         hourly_data = {h: {"order_count": 0, "revenue": Decimal("0")} for h in range(24)}
