@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends, Header
 from uuid import UUID
 from typing import Optional
 from decimal import Decimal
+import re
 
 from app.db.supabase import get_db
 from app.models.product import (
@@ -15,6 +16,20 @@ from app.routers.auth import get_current_user, require_auth
 router = APIRouter(prefix="/products", tags=["products"])
 
 
+def sanitize_search(search: str) -> str:
+    """Sanitize search input to prevent injection attacks.
+    
+    Removes special characters that could cause issues with database queries.
+    """
+    if not search:
+        return search
+    # Remove potentially dangerous characters for PostgREST queries
+    # Keep alphanumeric, spaces, and common punctuation
+    sanitized = re.sub(r'[^\w\s\-.]', '', search)
+    # Limit length to prevent DoS
+    return sanitized[:100]
+
+
 @router.get("/", response_model=ProductListResponse)
 async def list_products(
     category: Optional[str] = Query(None, description="Filter by category"),
@@ -22,7 +37,7 @@ async def list_products(
     search: Optional[str] = Query(None, description="Search by name or barcode"),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(0, ge=0, description="Items per page (0 for all)"),
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """List all products with optional filtering and pagination.
     Admin users see all products, staff users only see their own.
@@ -36,8 +51,11 @@ async def list_products(
             count_query = count_query.eq("is_active", True)
         if category:
             count_query = count_query.eq("category", category)
-        if search:
-            count_query = count_query.or_(f"name.ilike.%{search}%,barcode.ilike.%{search}%")
+        
+        # SECURITY: Sanitize search input
+        safe_search = sanitize_search(search) if search else None
+        if safe_search:
+            count_query = count_query.or_(f"name.ilike.%{safe_search}%,barcode.ilike.%{safe_search}%")
         
         # Staff users only see their own products
         if current_user and current_user.get("role") == "staff":
@@ -55,8 +73,8 @@ async def list_products(
         if category:
             query = query.eq("category", category)
         
-        if search:
-            query = query.or_(f"name.ilike.%{search}%,barcode.ilike.%{search}%")
+        if safe_search:
+            query = query.or_(f"name.ilike.%{safe_search}%,barcode.ilike.%{safe_search}%")
         
         # Staff users only see their own products
         if current_user and current_user.get("role") == "staff":
@@ -99,7 +117,7 @@ async def get_product(product_id: UUID):
 @router.get("/barcode/{barcode}", response_model=ProductResponse)
 async def get_product_by_barcode(
     barcode: str,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """Get a product by barcode (for scanner lookup).
     Staff users can only see their own products.

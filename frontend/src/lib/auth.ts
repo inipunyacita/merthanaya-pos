@@ -56,14 +56,14 @@ export async function signIn(credentials: LoginCredentials): Promise<AuthRespons
             console.warn('Could not fetch user profile, using auth metadata');
         }
 
-        // If no profile found, use auth user metadata as fallback
-        const userInfo = profile || {
-            full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
-            role: data.user.user_metadata?.role || 'admin', // Default to admin for now
-            is_active: true,
-        };
+        // SECURITY: Require profile to exist - deny access if no profile found
+        if (!profile) {
+            console.warn('[signIn] Access denied: User has no profile in users table');
+            await supabase.auth.signOut();
+            return { user: null, access_token: null, error: 'User profile not found. Please contact administrator.' };
+        }
 
-        if (profile && !profile.is_active) {
+        if (!profile.is_active) {
             await supabase.auth.signOut();
             return { user: null, access_token: null, error: 'Account is deactivated' };
         }
@@ -72,9 +72,9 @@ export async function signIn(credentials: LoginCredentials): Promise<AuthRespons
             user: {
                 id: data.user.id,
                 email: data.user.email!,
-                full_name: userInfo.full_name,
-                role: userInfo.role,
-                is_active: userInfo.is_active,
+                full_name: profile.full_name,
+                role: profile.role,
+                is_active: profile.is_active,
             },
             access_token: data.session.access_token,
             error: null,
@@ -174,26 +174,25 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
                 profile = result.data;
             }
         } catch (e) {
-            // Silently ignore - will use fallback
+            // Silently ignore - will deny access
         }
 
-        // Use auth user metadata as fallback if profile not available
-        const userInfo = profile || {
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-            role: user.user_metadata?.role || 'admin',
-            is_active: true,
-        };
+        // SECURITY: Require profile to exist - deny access if no profile found
+        if (!profile) {
+            console.warn('[getCurrentUser] Access denied: User has no profile in users table');
+            return null;
+        }
 
-        if (profile && !profile.is_active) {
+        if (!profile.is_active) {
             return null;
         }
 
         return {
             id: user.id,
             email: user.email!,
-            full_name: userInfo.full_name,
-            role: userInfo.role,
-            is_active: userInfo.is_active,
+            full_name: profile.full_name,
+            role: profile.role,
+            is_active: profile.is_active,
         };
     } catch (err) {
         console.error('[getCurrentUser] Unexpected error:', err);

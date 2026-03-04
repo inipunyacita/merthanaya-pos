@@ -16,7 +16,7 @@ from app.models.analytics import (
     HourlyDistribution,
     HourlyDistributionResponse,
 )
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, require_auth
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -35,7 +35,7 @@ async def get_sales_summary(
     days: int = Query(7, ge=1, le=365, description="Number of days to include"),
     date_from: Optional[date] = Query(None, description="Start date (overrides days)"),
     date_to: Optional[date] = Query(None, description="End date (overrides days)"),
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """
     Get sales summary for a date range.
@@ -105,7 +105,7 @@ async def get_top_products(
     limit: int = Query(10, ge=1, le=50),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """
     Get top selling products by revenue.
@@ -202,7 +202,7 @@ async def get_sales_by_category(
     days: int = Query(7, ge=1, le=365),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """
     Get sales breakdown by product category.
@@ -292,7 +292,7 @@ async def get_sales_trend(
     days: int = Query(7, ge=1, le=90),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """
     Get daily sales data for trend charts.
@@ -360,7 +360,7 @@ async def get_hourly_distribution(
     days: int = Query(7, ge=1, le=365),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """
     Get order distribution by hour of day.

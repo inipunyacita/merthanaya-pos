@@ -53,19 +53,14 @@ async def get_current_user(
                     "created_at": profile.data.get("created_at"),
                 }
         except Exception:
-            pass  # Continue to fallback
+            pass  # Continue to denial
         
-        # Fallback: user exists in auth but no profile - use default admin for now
-        return {
-            "id": user_response.user.id,
-            "email": user_response.user.email,
-            "full_name": user_response.user.email.split("@")[0] if user_response.user.email else "User",
-            "role": "admin",  # Default to admin for authenticated users without profile
-            "is_active": True,
-            "created_at": None,
-        }
-    except Exception as e:
-        print(f"[get_current_user] Error: {e}")
+        # SECURITY: Deny access if user has no profile in the users table
+        # This prevents authenticated users without proper setup from gaining access
+        # Note: Intentionally not logging user ID to avoid information leakage
+        return None
+    except Exception:
+        # SECURITY: Don't log exception details - could contain sensitive info
         return None
 
 
@@ -127,8 +122,9 @@ async def login(request: LoginRequest, supabase: Client = Depends(get_supabase_c
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+    except Exception:
+        # SECURITY: Always return generic error to prevent information leakage
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
 @router.post("/logout")

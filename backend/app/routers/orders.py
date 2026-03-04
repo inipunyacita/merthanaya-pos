@@ -178,7 +178,7 @@ async def create_order(
 
 @router.get("/pending", response_model=PendingOrdersResponse)
 async def get_pending_orders(
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """Get pending orders for the POS dashboard.
     Staff users only see their own orders, admin sees all.
@@ -227,7 +227,7 @@ async def get_pending_orders(
 async def get_paid_orders(
     page: int = 1,
     page_size: int = 6,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """Get paid orders with pagination for POS success history.
     Staff users only see their own orders, admin sees all.
@@ -412,7 +412,7 @@ async def get_transaction_history(
     date_from: date = None,
     date_to: date = None,
     search: str = None,
-    current_user: Optional[dict] = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """
     Get comprehensive transaction history with filters.

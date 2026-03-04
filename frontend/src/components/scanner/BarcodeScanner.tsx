@@ -10,7 +10,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Camera, X, Loader2 } from 'lucide-react';
+import { Camera, X, Loader2, ScanBarcode, Wifi } from 'lucide-react';
+import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 
 interface CameraDevice {
     id: string;
@@ -22,6 +23,8 @@ interface BarcodeScannerProps {
     onScanError?: (error: string) => void;
     onClose?: () => void;
     autoStart?: boolean;
+    /** 'hardware' uses USB/Bluetooth HID scanner input. 'camera' uses the device camera. Default: 'hardware' */
+    mode?: 'hardware' | 'camera';
 }
 
 const SUPPORTED_FORMATS = [
@@ -34,7 +37,97 @@ const SUPPORTED_FORMATS = [
     Html5QrcodeSupportedFormats.QR_CODE,
 ];
 
-export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart = false }: BarcodeScannerProps) {
+// ─── Hardware Mode UI ────────────────────────────────────────────────────────
+
+function HardwareScannerUI({
+    onScanSuccess,
+    onClose,
+}: {
+    onScanSuccess: (barcode: string) => void;
+    onClose?: () => void;
+}) {
+    const [lastScanned, setLastScanned] = useState<string>('');
+    const [flash, setFlash] = useState(false);
+
+    const handleScan = useCallback(
+        (barcode: string) => {
+            setLastScanned(barcode);
+            setFlash(true);
+            setTimeout(() => setFlash(false), 600);
+            onScanSuccess(barcode);
+        },
+        [onScanSuccess]
+    );
+
+    useHardwareScanner({ onScan: handleScan, enabled: true });
+
+    return (
+        <div className="flex flex-col gap-5">
+            {/* Status Indicator */}
+            <div
+                className={`flex flex-col items-center justify-center rounded-xl py-10 transition-all duration-300 ${flash
+                        ? 'bg-green-50 border-2 border-green-400'
+                        : 'bg-slate-50 border-2 border-dashed border-slate-300'
+                    }`}
+            >
+                <div
+                    className={`rounded-full p-4 transition-all duration-300 ${flash ? 'bg-green-100' : 'bg-indigo-100'
+                        }`}
+                >
+                    <ScanBarcode
+                        className={`h-12 w-12 transition-colors duration-300 ${flash ? 'text-green-600' : 'text-indigo-500'
+                            }`}
+                    />
+                </div>
+
+                <div className="mt-4 text-center">
+                    {flash ? (
+                        <>
+                            <p className="font-semibold text-green-700 text-lg">Barcode Detected!</p>
+                            <p className="font-mono text-green-600 text-sm mt-1">{lastScanned}</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="font-semibold text-slate-700">Scanner Ready</p>
+                            <p className="text-slate-500 text-sm mt-1">
+                                Scan a product barcode with your scanner
+                            </p>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Connected badge */}
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                </span>
+                <Wifi className="h-3.5 w-3.5" />
+                Hardware scanner connected
+            </div>
+
+            {/* Close */}
+            <Button
+                variant="outline"
+                onClick={onClose}
+                className="w-full border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+                <X className="h-4 w-4 mr-2" />
+                Close
+            </Button>
+        </div>
+    );
+}
+
+// ─── Camera Mode UI ──────────────────────────────────────────────────────────
+
+function CameraScannerUI({
+    onScanSuccess,
+    onScanError,
+    onClose,
+    autoStart = false,
+}: BarcodeScannerProps) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [cameras, setCameras] = useState<CameraDevice[]>([]);
@@ -45,18 +138,13 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
     const [lastScanned, setLastScanned] = useState<string>('');
     const [isMounted, setIsMounted] = useState(false);
 
-    // Track component mount state
     useEffect(() => {
         setIsMounted(true);
-        return () => {
-            setIsMounted(false);
-        };
+        return () => setIsMounted(false);
     }, []);
 
-    // Get available cameras
     useEffect(() => {
         if (!isMounted) return;
-
         const getCameras = async () => {
             try {
                 const devices = await Html5Qrcode.getCameras();
@@ -66,9 +154,10 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
                         label: device.label || `Camera ${device.id}`,
                     }));
                     setCameras(cameraList);
-                    // Prefer back camera if available
                     const backCamera = cameraList.find(
-                        (c) => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('rear')
+                        (c) =>
+                            c.label.toLowerCase().includes('back') ||
+                            c.label.toLowerCase().includes('rear')
                     );
                     setSelectedCamera(backCamera?.id || cameraList[0].id);
                 } else {
@@ -81,18 +170,15 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
                 setIsLoading(false);
             }
         };
-
         getCameras();
     }, [isMounted]);
 
-    // Auto-start scanning when camera is ready and autoStart is enabled
     useEffect(() => {
         if (autoStart && selectedCamera && !isScanning && !isLoading && !error) {
             startScanning();
         }
     }, [autoStart, selectedCamera, isLoading, error]);
 
-    // Cleanup on unmount
     useEffect(() => {
         return () => {
             const cleanup = async () => {
@@ -114,38 +200,26 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
 
     const startScanning = useCallback(async () => {
         if (!selectedCamera || !containerRef.current) return;
-
         try {
             setError(null);
-
-            // Create scanner instance if it doesn't exist
             if (!scannerRef.current) {
                 scannerRef.current = new Html5Qrcode('barcode-scanner-reader', {
                     formatsToSupport: SUPPORTED_FORMATS,
                     verbose: false,
                 });
             }
-
             setIsScanning(true);
-
             await scannerRef.current.start(
                 selectedCamera,
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 150 },
-                    aspectRatio: 1.777778,
-                },
+                { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.777778 },
                 (decodedText) => {
-                    // Prevent duplicate scans
                     if (decodedText !== lastScanned) {
                         setLastScanned(decodedText);
-                        onScanSuccess(decodedText);
-                        // Auto-stop after successful scan
+                        onScanSuccess?.(decodedText);
                         stopScanning();
                     }
                 },
                 (errorMessage) => {
-                    // This fires frequently when no code is detected - ignore these
                     if (onScanError && !errorMessage.includes('No MultiFormat Readers')) {
                         onScanError(errorMessage);
                     }
@@ -170,9 +244,7 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
     }, []);
 
     const handleCameraChange = async (cameraId: string) => {
-        if (isScanning) {
-            await stopScanning();
-        }
+        if (isScanning) await stopScanning();
         setSelectedCamera(cameraId);
     };
 
@@ -204,7 +276,6 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
 
     return (
         <div className="flex flex-col gap-4" ref={containerRef}>
-            {/* Camera Selection */}
             <div className="flex items-center gap-2">
                 <Select value={selectedCamera} onValueChange={handleCameraChange} disabled={isScanning}>
                     <SelectTrigger className="flex-1 bg-white border-gray-300">
@@ -228,7 +299,6 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
                 </Button>
             </div>
 
-            {/* Scanner Preview Area */}
             <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: '250px' }}>
                 <div id="barcode-scanner-reader" className="w-full" />
                 {!isScanning && (
@@ -241,12 +311,8 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
                 )}
             </div>
 
-            {/* Error Message */}
-            {error && (
-                <p className="text-red-500 text-sm text-center">{error}</p>
-            )}
+            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
-            {/* Instructions */}
             <p className="text-gray-500 text-sm text-center">
                 {isScanning
                     ? 'Point the camera at a barcode to scan'
@@ -255,17 +321,20 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
                         : 'Click "Start Scanning" to begin'}
             </p>
 
-            {/* Controls */}
             <div className="flex gap-2">
                 <Button
                     variant="outline"
                     onClick={handleClose}
-                    className={autoStart ? "w-full border-gray-300 text-gray-700 hover:bg-gray-100" : "flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"}
+                    className={
+                        autoStart
+                            ? 'w-full border-gray-300 text-gray-700 hover:bg-gray-100'
+                            : 'flex-1 border-gray-300 text-gray-700 hover:bg-gray-100'
+                    }
                 >
                     Cancel
                 </Button>
-                {!autoStart && (
-                    isScanning ? (
+                {!autoStart &&
+                    (isScanning ? (
                         <Button
                             onClick={stopScanning}
                             className="flex-1 bg-red-600 hover:bg-red-700 text-white"
@@ -281,9 +350,32 @@ export function BarcodeScanner({ onScanSuccess, onScanError, onClose, autoStart 
                             <Camera className="h-4 w-4 mr-2" />
                             Start Scanning
                         </Button>
-                    )
-                )}
+                    ))}
             </div>
         </div>
+    );
+}
+
+// ─── Main Export ─────────────────────────────────────────────────────────────
+
+export function BarcodeScanner({
+    onScanSuccess,
+    onScanError,
+    onClose,
+    autoStart = false,
+    mode = 'hardware',
+}: BarcodeScannerProps) {
+    if (mode === 'hardware') {
+        return <HardwareScannerUI onScanSuccess={onScanSuccess} onClose={onClose} />;
+    }
+
+    return (
+        <CameraScannerUI
+            onScanSuccess={onScanSuccess}
+            onScanError={onScanError}
+            onClose={onClose}
+            autoStart={autoStart}
+            mode={mode}
+        />
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Pencil, PowerOff, Power, Trash2, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Product, PRODUCT_CATEGORIES } from '@/types';
 import { productApi } from '@/lib/api';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
+import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 import { POSLayout, usePOS } from '@/components/pos';
 import { toast } from 'sonner';
 
@@ -31,6 +32,7 @@ export default function ManageProductsPage() {
         handleReactivateProduct,
         handleDeleteProduct,
         setRefreshProducts,
+        setScanOverride,
     } = usePOS();
 
     const [managedProducts, setManagedProducts] = useState<Product[]>([]);
@@ -59,6 +61,29 @@ export default function ManageProductsPage() {
         fetchManagedProducts();
         setRefreshProducts(fetchManagedProducts);
     }, [fetchManagedProducts, setRefreshProducts]);
+
+    // Register a scan override so hardware scanner filters the list instead of adding to cart
+    useEffect(() => {
+        setScanOverride((barcode) => {
+            setManageSearch(barcode);
+            setProductPage(1);
+        });
+        return () => setScanOverride(null); // Restore default behaviour on unmount
+    }, [setScanOverride]);
+
+    // Keep a stable ref to formData so the scanner callback always sees the latest value
+    const formDataRef = useRef(formData);
+    useEffect(() => { formDataRef.current = formData; }, [formData]);
+
+    // Dedicated hardware scanner listener — only active when product scanner dialog is open.
+    // Fills the barcode input field and closes the dialog.
+    useHardwareScanner({
+        onScan: (code) => {
+            setFormData({ ...formDataRef.current, barcode: code });
+            setProductScannerOpen(false);
+        },
+        enabled: productScannerOpen,
+    });
 
     const managedTotalPages = Math.ceil(totalManagedProducts / MANAGE_PAGE_SIZE);
 
@@ -204,6 +229,28 @@ export default function ManageProductsPage() {
                                     </div>
                                 </div>
                             )}
+                            {/* Image URL */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="image_url" className="text-right text-xs leading-tight">Image URL</Label>
+                                <div className="col-span-3">
+                                    <Input
+                                        id="image_url"
+                                        type="url"
+                                        value={formData.image_url || ''}
+                                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value || null })}
+                                        className="bg-white border-slate-300 text-slate-900"
+                                        placeholder="https://example.com/image.jpg"
+                                    />
+                                    {formData.image_url && (
+                                        <img
+                                            src={formData.image_url}
+                                            alt="Preview"
+                                            className="mt-2 w-full h-24 object-cover rounded-lg border border-slate-200"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    )}
+                                </div>
+                            </div>
                             {/* Name */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="name" className="text-right">Name</Label>
@@ -289,21 +336,23 @@ export default function ManageProductsPage() {
 
             {/* Product Scanner Dialog */}
             <Dialog open={productScannerOpen} onOpenChange={setProductScannerOpen}>
-                <DialogContent className="max-w-[90vw] sm:max-w-[450px] bg-white border-slate-200 shadow-xl">
+                <DialogContent className="max-w-[90vw] sm:max-w-[420px] bg-white border-slate-200 shadow-xl">
                     <DialogHeader>
                         <DialogTitle className="text-slate-800 flex items-center gap-2">
-                            <ScanLine className="h-5 w-5 text-indigo-600" />Scan Product Barcode
+                            <ScanLine className="h-5 w-5 text-indigo-600" />Scan Barcode
                         </DialogTitle>
-                        <DialogDescription className="text-slate-500">Point your camera at a barcode</DialogDescription>
+                        <DialogDescription className="text-slate-500">
+                            Pick up your scanner and scan the product barcode
+                        </DialogDescription>
                     </DialogHeader>
                     {productScannerOpen && (
                         <BarcodeScanner
+                            mode="hardware"
                             onScanSuccess={(code) => {
                                 setFormData({ ...formData, barcode: code });
                                 setProductScannerOpen(false);
                             }}
                             onClose={() => setProductScannerOpen(false)}
-                            autoStart
                         />
                     )}
                 </DialogContent>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, ScanLine, Printer, ShoppingCart, X, Menu } from 'lucide-react';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
+import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -196,6 +197,13 @@ export default function RunnerPage() {
             });
         }
     };
+
+    // Always-on hardware scanner listener for runner page
+    useHardwareScanner({
+        onScan: handleBarcodeScan,
+        enabled: true,
+        ignoreWhenInputFocused: true,
+    });
 
     const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && searchTerm.length > 5) {
@@ -815,21 +823,21 @@ export default function RunnerPage() {
 
             {/* Barcode Scanner Dialog */}
             <Dialog open={scannerDialogOpen} onOpenChange={setScannerDialogOpen}>
-                <DialogContent className="max-w-[90vw] sm:max-w-[450px] bg-white border-slate-200 shadow-xl">
+                <DialogContent className="max-w-[90vw] sm:max-w-[420px] bg-white border-slate-200 shadow-xl">
                     <DialogHeader>
                         <DialogTitle className="text-slate-800 flex items-center gap-2">
                             <ScanLine className="h-5 w-5 text-indigo-600" />
-                            Scan Product Barcode
+                            Hardware Barcode Scanner
                         </DialogTitle>
                         <DialogDescription className="text-slate-500">
-                            Point your camera at a product barcode to add it to cart
+                            Pick up your scanner and scan a product barcode to add it to cart
                         </DialogDescription>
                     </DialogHeader>
                     {scannerDialogOpen && (
                         <BarcodeScanner
+                            mode="hardware"
                             onScanSuccess={handleBarcodeScan}
                             onClose={() => setScannerDialogOpen(false)}
-                            autoStart
                         />
                     )}
                 </DialogContent>

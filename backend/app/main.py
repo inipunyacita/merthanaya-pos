@@ -1,7 +1,63 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from typing import Callable
+import time
 
 from app.routers import products_router, orders_router, analytics_router, inventory_router, auth_router, users_router, stores_router
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""
+    
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+        
+        # Security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        
+        return response
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple in-memory rate limiting for login endpoint."""
+    
+    def __init__(self, app, requests_per_minute: int = 10):
+        super().__init__(app)
+        self.requests_per_minute = requests_per_minute
+        self.requests: dict[str, list[float]] = {}
+    
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # Only rate limit login endpoint
+        if request.url.path == "/auth/login" and request.method == "POST":
+            client_ip = request.client.host if request.client else "unknown"
+            now = time.time()
+            
+            # Clean old requests (older than 1 minute)
+            if client_ip in self.requests:
+                self.requests[client_ip] = [
+                    t for t in self.requests[client_ip] if now - t < 60
+                ]
+            else:
+                self.requests[client_ip] = []
+            
+            # Check rate limit
+            if len(self.requests[client_ip]) >= self.requests_per_minute:
+                return Response(
+                    content='{"detail": "Too many login attempts. Please wait 1 minute."}',
+                    status_code=429,
+                    media_type="application/json"
+                )
+            
+            # Record this request
+            self.requests[client_ip].append(now)
+        
+        return await call_next(request)
+
 
 app = FastAPI(
     title="Merthanaya POS API",
@@ -9,7 +65,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS - Allow frontend origins
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Add rate limiting middleware (10 login attempts per minute)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=10)
+
+# CORS - Allow frontend origins with specific headers (not wildcard)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -22,7 +84,8 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    # SECURITY: Only allow specific headers instead of wildcard
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
 # Include routers

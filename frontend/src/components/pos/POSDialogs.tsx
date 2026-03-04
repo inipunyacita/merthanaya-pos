@@ -167,15 +167,21 @@ export function POSDialogs() {
 
             {/* Scanner Dialog */}
             <Dialog open={scannerDialogOpen} onOpenChange={setScannerDialogOpen}>
-                <DialogContent className="max-w-[90vw] sm:max-w-[450px] bg-white border-slate-200 shadow-xl">
+                <DialogContent className="max-w-[90vw] sm:max-w-[420px] bg-white border-slate-200 shadow-xl">
                     <DialogHeader>
                         <DialogTitle className="text-slate-800 flex items-center gap-2">
-                            <ScanLine className="h-5 w-5 text-indigo-600" />Scan Product Barcode
+                            <ScanLine className="h-5 w-5 text-indigo-600" />Hardware Barcode Scanner
                         </DialogTitle>
-                        <DialogDescription className="text-slate-500">Point your camera at a product barcode to add it to cart</DialogDescription>
+                        <DialogDescription className="text-slate-500">
+                            Pick up your scanner and scan a product barcode to add it to cart
+                        </DialogDescription>
                     </DialogHeader>
                     {scannerDialogOpen && (
-                        <BarcodeScanner onScanSuccess={handleBarcodeScan} onClose={() => setScannerDialogOpen(false)} autoStart />
+                        <BarcodeScanner
+                            mode="hardware"
+                            onScanSuccess={handleBarcodeScan}
+                            onClose={() => setScannerDialogOpen(false)}
+                        />
                     )}
                 </DialogContent>
             </Dialog>

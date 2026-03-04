@@ -1,10 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { Product, CartItem, Store, Order, OrderSummary, ProductCreate } from '@/types';
 import { productApi, orderApi, storeApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 
 // === TYPES ===
 interface TicketInfo {
@@ -110,6 +111,9 @@ interface POSContextType {
     refreshPendingOrders: () => void;
     setRefreshPendingOrders: (callback: () => void) => void;
 
+    // Scan override — lets a page intercept scanner events (e.g. to search instead of add to cart)
+    setScanOverride: (fn: ((barcode: string) => void) | null) => void;
+
     // Order counts for sidebar badges
     pendingOrdersCount: number;
     successOrdersCount: number;
@@ -173,6 +177,17 @@ export function POSProvider({ children }: { children: ReactNode }) {
     // Refresh callbacks
     const [refreshProducts, setRefreshProducts] = useState<() => void>(() => () => { });
     const [refreshPendingOrders, setRefreshPendingOrders] = useState<() => void>(() => () => { });
+
+    // Stable wrappers so context consumers don't re-run useEffect on every render
+    const setRefreshProductsStable = useCallback((cb: () => void) => setRefreshProducts(() => cb), []);
+    const setRefreshPendingOrdersStable = useCallback((cb: () => void) => setRefreshPendingOrders(() => cb), []);
+
+    // Scan override: a page can register a callback to intercept scanner events
+    // (e.g. the manage-products page uses this to filter the list instead of adding to cart)
+    const scanOverrideRef = useRef<((barcode: string) => void) | null>(null);
+    const setScanOverride = useCallback((fn: ((barcode: string) => void) | null) => {
+        scanOverrideRef.current = fn;
+    }, []);
 
     // Order counts for sidebar badges
     const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
@@ -248,6 +263,17 @@ export function POSProvider({ children }: { children: ReactNode }) {
 
     const handleBarcodeScan = useCallback(async (barcode: string) => {
         setScannerDialogOpen(false);
+        // If the product scanner dialog is open, fill the barcode field instead of looking up a product
+        if (productScannerOpen) {
+            setFormData((prev) => ({ ...prev, barcode }));
+            setProductScannerOpen(false);
+            return;
+        }
+        // If a page has registered an override (e.g. manage products), delegate to it
+        if (scanOverrideRef.current) {
+            scanOverrideRef.current(barcode);
+            return;
+        }
         try {
             const product = await productApi.getByBarcode(barcode);
             if (product) {
@@ -257,7 +283,16 @@ export function POSProvider({ children }: { children: ReactNode }) {
         } catch {
             toast.error('Product Not Found', { description: `No product with code "${barcode}"` });
         }
-    }, [handleProductClick]);
+    }, [handleProductClick, productScannerOpen]);
+
+    // === ALWAYS-ON HARDWARE SCANNER ===
+    // Active globally across all POS pages. Ignores input when user is typing in a form field.
+    // Disabled when the product scanner dialog is open (it has its own dedicated listener).
+    useHardwareScanner({
+        onScan: handleBarcodeScan,
+        enabled: !productScannerOpen,
+        ignoreWhenInputFocused: true,
+    });
 
     // === STORE FUNCTIONS ===
     const fetchStore = useCallback(async () => {
@@ -466,8 +501,12 @@ export function POSProvider({ children }: { children: ReactNode }) {
             resetProductForm();
             refreshProducts();
         } catch (error) {
+            const err = error as { response?: { data?: { detail?: string } } };
+            const detail = err.response?.data?.detail;
             console.error('Failed to save product:', error);
-            toast.error('Failed to save product');
+            toast.error('Failed to save product', {
+                description: detail || 'Please check the product details and try again.',
+            });
         }
     }, [editingProduct, formData, resetProductForm, refreshProducts]);
 
@@ -555,8 +594,9 @@ export function POSProvider({ children }: { children: ReactNode }) {
         handleDeactivateProduct, handleReactivateProduct, handleDeleteProduct,
         loading, setLoading,
         formatPrice, formatTime, formatDateTime, formatSmartDate,
-        refreshProducts, setRefreshProducts: (cb) => setRefreshProducts(() => cb),
-        refreshPendingOrders, setRefreshPendingOrders: (cb) => setRefreshPendingOrders(() => cb),
+        refreshProducts, setRefreshProducts: setRefreshProductsStable,
+        refreshPendingOrders, setRefreshPendingOrders: setRefreshPendingOrdersStable,
+        setScanOverride,
         pendingOrdersCount, successOrdersCount, setPendingOrdersCount, setSuccessOrdersCount,
     };
 
