@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
+import { usePOSState } from './POSContext';
 
 interface NavSection {
     label: string;
@@ -29,15 +30,15 @@ interface NavSection {
 }
 
 interface POSSidebarProps {
-    pendingCount?: number;
-    successCount?: number;
     sidebarOpen: boolean;
     setSidebarOpen: (open: boolean) => void;
 }
 
-export const POSSidebar = memo(function POSSidebar({ pendingCount = 0, successCount = 0, sidebarOpen, setSidebarOpen }: POSSidebarProps) {
+export const POSSidebar = memo(function POSSidebar({ sidebarOpen, setSidebarOpen }: POSSidebarProps) {
     const pathname = usePathname();
     const { user, signOut } = useAuth();
+    // Get counts directly from state to avoid prop drilling delays
+    const { pendingOrdersCount, successOrdersCount } = usePOSState();
     const isAdmin = user?.role === 'admin';
 
     const closeSidebar = () => setSidebarOpen(false);
@@ -47,8 +48,8 @@ export const POSSidebar = memo(function POSSidebar({ pendingCount = 0, successCo
             label: 'Order',
             items: [
                 { href: '/pos/order', label: 'New Order', icon: Package },
-                { href: '/pos/pending', label: 'Pending', icon: ClipboardList, badgeCount: pendingCount },
-                { href: '/pos/success', label: 'Success', icon: CheckCircle, badgeCount: successCount },
+                { href: '/pos/pending', label: 'Pending', icon: ClipboardList, badgeCount: pendingOrdersCount },
+                { href: '/pos/success', label: 'Success', icon: CheckCircle, badgeCount: successOrdersCount },
             ],
         },
         {

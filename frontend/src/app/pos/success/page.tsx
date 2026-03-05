@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -10,7 +10,6 @@ import { OrderSummary } from '@/types';
 import { orderApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { POSLayout, usePOSState, usePOSActions } from '@/components/pos';
-import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from 'sonner';
 
 const ORDER_PAGE_SIZE = 6;
@@ -56,19 +55,21 @@ export default function SuccessPage() {
 
     const [paidOrders, setPaidOrders] = useState<OrderSummary[]>([]);
     const [loading, setLoading] = useState(true);
-    const [successSearch, setSuccessSearch] = useState('');
-    const debouncedSuccessSearch = useDebounce(successSearch, 300);
+    const [searchTerm, setSearchTerm] = useState('');
     const [paidPage, setPaidPage] = useState(1);
     const [totalPaidOrders, setTotalPaidOrders] = useState(0);
 
-    const fetchPaidOrders = useCallback(async () => {
+    const searchRef = useRef<HTMLInputElement>(null);
+
+    const fetchPaidOrders = useCallback(async (searchQuery?: string) => {
         try {
             setLoading(true);
+            const finalSearch = searchQuery !== undefined ? searchQuery : searchTerm;
             const response = await orderApi.getHistory({
                 page: paidPage,
                 page_size: ORDER_PAGE_SIZE,
                 status: 'PAID',
-                search: debouncedSuccessSearch || undefined
+                search: finalSearch || undefined
             });
             setPaidOrders(response.orders);
             setTotalPaidOrders(response.total);
@@ -79,7 +80,7 @@ export default function SuccessPage() {
         } finally {
             setLoading(false);
         }
-    }, [paidPage, debouncedSuccessSearch, setSuccessOrdersCount]);
+    }, [paidPage, searchTerm, setSuccessOrdersCount]);
 
     useEffect(() => {
         fetchPaidOrders();
@@ -109,9 +110,14 @@ export default function SuccessPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div className="hidden sm:block" />
                 <Input
-                    placeholder="Search by ID..."
-                    value={successSearch}
-                    onChange={(e) => { setSuccessSearch(e.target.value); setPaidPage(1); }}
+                    ref={searchRef}
+                    placeholder="Search by ID (Enter)..."
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            setSearchTerm(e.currentTarget.value);
+                            setPaidPage(1);
+                        }
+                    }}
                     className="w-full sm:w-48 bg-white border-slate-300"
                 />
             </div>

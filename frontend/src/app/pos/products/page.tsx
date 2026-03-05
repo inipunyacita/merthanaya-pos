@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { Product, PRODUCT_CATEGORIES } from '@/types';
 import { productApi } from '@/lib/api';
-import { useDebounce } from '@/hooks/useDebounce';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 import { POSLayout, usePOSState, usePOSActions } from '@/components/pos';
@@ -33,16 +32,23 @@ export default function ManageProductsPage() {
 
     const [managedProducts, setManagedProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
-    const [manageSearch, setManageSearch] = useState('');
-    const debouncedManageSearch = useDebounce(manageSearch, 300);
     const [productPage, setProductPage] = useState(1);
     const [totalManagedProducts, setTotalManagedProducts] = useState(0);
     const [showBarcode, setShowBarcode] = useState(false);
 
-    const fetchManagedProducts = useCallback(async () => {
+    // Uncontrolled search input ref
+    const searchRef = useRef<HTMLInputElement>(null);
+
+    const fetchManagedProducts = useCallback(async (searchQuery?: string) => {
         try {
             setLoading(true);
-            const params = { page: productPage, page_size: MANAGE_PAGE_SIZE, search: debouncedManageSearch || undefined, include_inactive: true };
+            const finalSearch = searchQuery !== undefined ? searchQuery : searchRef.current?.value;
+            const params = {
+                page: productPage,
+                page_size: MANAGE_PAGE_SIZE,
+                search: finalSearch || undefined,
+                include_inactive: true
+            };
             const response = await productApi.list(params);
             setManagedProducts(response.products);
             setTotalManagedProducts(response.total);
@@ -52,7 +58,7 @@ export default function ManageProductsPage() {
         } finally {
             setLoading(false);
         }
-    }, [productPage, debouncedManageSearch]);
+    }, [productPage]);
 
     useEffect(() => {
         fetchManagedProducts();
@@ -62,11 +68,12 @@ export default function ManageProductsPage() {
     // Register a scan override so hardware scanner filters the list instead of adding to cart
     useEffect(() => {
         setScanOverride((barcode) => {
-            setManageSearch(barcode);
+            if (searchRef.current) searchRef.current.value = barcode;
             setProductPage(1);
+            fetchManagedProducts(barcode);
         });
         return () => setScanOverride(null); // Restore default behaviour on unmount
-    }, [setScanOverride]);
+    }, [setScanOverride, fetchManagedProducts]);
 
     // Keep a stable ref to formData so the scanner callback always sees the latest value
     const formDataRef = useRef(formData);
@@ -91,9 +98,14 @@ export default function ManageProductsPage() {
                 <div className="hidden sm:block" /> {/* Spacer */}
                 <div className="flex gap-2">
                     <Input
-                        placeholder="Search products..."
-                        value={manageSearch}
-                        onChange={(e) => { setManageSearch(e.target.value); setProductPage(1); }}
+                        ref={searchRef}
+                        placeholder="Search products (Enter to search)..."
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                setProductPage(1);
+                                fetchManagedProducts(e.currentTarget.value);
+                            }
+                        }}
                         className="w-full sm:w-48 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
                     />
                     <Button onClick={() => openProductDialog()} className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">

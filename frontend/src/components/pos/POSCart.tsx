@@ -83,7 +83,7 @@ export const POSCart = memo(function POSCart() {
     return (
         <>
             {/* Desktop Cart Sidebar */}
-            <aside className="hidden xl:flex w-80 max-w-80 border-l border-slate-200 bg-white/90 backdrop-blur-xl flex-col shadow-lg h-full overflow-hidden">
+            <aside className="hidden xl:flex w-80 max-w-80 border-l border-slate-200 bg-white flex-col shadow-lg h-full overflow-hidden">
                 <div className="p-4 border-b border-slate-200 shrink-0">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-slate-800">Cart</h2>

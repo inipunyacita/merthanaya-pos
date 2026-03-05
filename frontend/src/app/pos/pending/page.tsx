@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -10,7 +10,6 @@ import { OrderSummary } from '@/types';
 import { orderApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { POSLayout, usePOSState, usePOSActions } from '@/components/pos';
-import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from 'sonner';
 
 const ORDER_PAGE_SIZE = 6;
@@ -53,9 +52,10 @@ export default function PendingPage() {
 
     const [pendingOrders, setPendingOrders] = useState<OrderSummary[]>([]);
     const [loading, setLoading] = useState(true);
-    const [pendingSearch, setPendingSearch] = useState('');
-    const debouncedPendingSearch = useDebounce(pendingSearch, 300);
+    const [searchTerm, setSearchTerm] = useState('');
     const [pendingPage, setPendingPage] = useState(1);
+
+    const searchRef = useRef<HTMLInputElement>(null);
 
     const fetchPendingOrders = useCallback(async () => {
         try {
@@ -112,12 +112,12 @@ export default function PendingPage() {
         return () => { supabase.removeChannel(channel); };
     }, []);
 
-    // Filter and sort pending orders by debounced search (newest first)
+    // Filter and sort pending orders by search term (newest first)
     const filteredPendingOrders = pendingOrders
         .filter(order =>
-            !debouncedPendingSearch ||
-            order.short_id.toLowerCase().includes(debouncedPendingSearch.toLowerCase()) ||
-            order.invoice_id?.toLowerCase().includes(debouncedPendingSearch.toLowerCase())
+            !searchTerm ||
+            order.short_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.invoice_id?.toLowerCase().includes(searchTerm.toLowerCase())
         )
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -129,9 +129,14 @@ export default function PendingPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div className="hidden sm:block" />
                 <Input
-                    placeholder="Search by ID..."
-                    value={pendingSearch}
-                    onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1); }}
+                    ref={searchRef}
+                    placeholder="Search by ID (Enter)..."
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            setSearchTerm(e.currentTarget.value);
+                            setPendingPage(1);
+                        }
+                    }}
                     className="w-full sm:w-48 bg-white border-slate-300"
                 />
             </div>

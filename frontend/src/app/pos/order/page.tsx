@@ -57,8 +57,6 @@ export default function OrderPage() {
 
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearch = useDebounce(searchTerm, 400); // Slightly longer debounce for Android 9
     const [activeCategory, setActiveCategory] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalProducts, setTotalProducts] = useState(0);
@@ -75,9 +73,9 @@ export default function OrderPage() {
             };
             if (activeCategory !== 'all') params.category = activeCategory;
 
-            // Use the passed query or the state
-            const targetSearch = searchQuery !== undefined ? searchQuery : debouncedSearch;
-            if (targetSearch) params.search = targetSearch;
+            // If searchQuery is provided, use it. Otherwise, read from ref (uncontrolled)
+            const finalSearch = searchQuery !== undefined ? searchQuery : inputRef.current?.value;
+            if (finalSearch) params.search = finalSearch;
 
             const response = await productApi.list(params);
             setProducts(response.products);
@@ -87,7 +85,7 @@ export default function OrderPage() {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, activeCategory, debouncedSearch]);
+    }, [currentPage, activeCategory]);
 
     useEffect(() => {
         fetchProducts();
@@ -98,9 +96,8 @@ export default function OrderPage() {
             const product = await productApi.getByBarcode(barcode);
             if (product) {
                 handleProductClick(product);
-                // Clear input without triggering a full re-render cycle if possible
+                // Clear input without triggering a full re-render
                 if (inputRef.current) inputRef.current.value = '';
-                setSearchTerm('');
             }
         } catch (error) {
             console.error('Barcode search failed:', error);
@@ -111,16 +108,16 @@ export default function OrderPage() {
     useHardwareScanner({
         onScan: handleBarcodeSearch,
         enabled: true,
-        ignoreWhenInputFocused: false, // Catch even if they accidentally clicked the box
+        ignoreWhenInputFocused: false,
     });
 
     const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             const val = e.currentTarget.value;
-            if (val.length > 5) {
+            if (val.length > 5 && /^\d+$/.test(val)) {
                 handleBarcodeSearch(val);
             } else {
-                setSearchTerm(val);
+                setCurrentPage(1);
                 fetchProducts(val);
             }
         }
@@ -132,14 +129,7 @@ export default function OrderPage() {
             <div className="flex gap-2 mb-4">
                 <Input
                     ref={inputRef}
-                    placeholder="Search by name or scan barcode..."
-                    defaultValue={searchTerm}
-                    onChange={(e) => {
-                        // We still set state for manual typing, but debouncedSearch 
-                        // will handle the actual API call to keep UI snappy
-                        setSearchTerm(e.target.value);
-                        if (currentPage !== 1) setCurrentPage(1);
-                    }}
+                    placeholder="Search name or scan barcode (Enter to search)"
                     onKeyDown={handleSearchKeyPress}
                     className="flex-1 bg-white border-slate-300"
                 />

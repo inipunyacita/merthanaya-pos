@@ -42,11 +42,11 @@ export function POSLayout({
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-slate-50 via-indigo-50 to-white">
+        <div className="min-h-screen bg-slate-50">
             <Toaster richColors position="top-center" expand visibleToasts={5} />
 
             {/* Header */}
-            <header className="border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
+            <header className="border-b border-slate-200 bg-white sticky top-0 z-40 shadow-sm">
                 <div className="px-4 py-3">
                     <div className="flex items-center justify-between gap-2 sm:gap-4">
                         {/* Mobile Menu Button */}
@@ -116,8 +116,6 @@ export function POSLayout({
             <div className="flex h-[calc(100vh-60px)]">
                 {/* Left Sidebar */}
                 <POSSidebar
-                    pendingCount={pendingOrdersCount}
-                    successCount={successOrdersCount}
                     sidebarOpen={sidebarOpen}
                     setSidebarOpen={setSidebarOpen}
                 />
