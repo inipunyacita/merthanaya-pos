@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { memo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -35,7 +35,7 @@ interface POSSidebarProps {
     setSidebarOpen: (open: boolean) => void;
 }
 
-export function POSSidebar({ pendingCount = 0, successCount = 0, sidebarOpen, setSidebarOpen }: POSSidebarProps) {
+export const POSSidebar = memo(function POSSidebar({ pendingCount = 0, successCount = 0, sidebarOpen, setSidebarOpen }: POSSidebarProps) {
     const pathname = usePathname();
     const { user, signOut } = useAuth();
     const isAdmin = user?.role === 'admin';
@@ -118,20 +118,20 @@ export function POSSidebar({ pendingCount = 0, successCount = 0, sidebarOpen, se
                                         href={item.href}
                                         onClick={closeSidebar}
                                         className={`w-full flex items-center gap-3 px-4 py-1 rounded-lg text-left transition-all ${isActive
-                                                ? item.href === '/pos/pending'
-                                                    ? 'bg-yellow-100 text-yellow-700 font-medium'
-                                                    : item.href === '/pos/success'
-                                                        ? 'bg-green-100 text-green-700 font-medium'
-                                                        : 'bg-indigo-100 text-indigo-700 font-medium'
-                                                : 'text-slate-600 hover:bg-slate-100'
+                                            ? item.href === '/pos/pending'
+                                                ? 'bg-yellow-100 text-yellow-700 font-medium'
+                                                : item.href === '/pos/success'
+                                                    ? 'bg-green-100 text-green-700 font-medium'
+                                                    : 'bg-indigo-100 text-indigo-700 font-medium'
+                                            : 'text-slate-600 hover:bg-slate-100'
                                             }`}
                                     >
                                         <Icon className="h-5 w-5" />
                                         <span className="flex-1">{item.label}</span>
                                         {item.badgeCount !== undefined && item.badgeCount > 0 && (
                                             <Badge className={`text-xs ${item.href === '/pos/pending'
-                                                    ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                                                    : 'bg-green-100 text-green-700 border-green-300'
+                                                ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                                                : 'bg-green-100 text-green-700 border-green-300'
                                                 }`}>
                                                 {item.badgeCount}
                                             </Badge>
@@ -171,4 +171,4 @@ export function POSSidebar({ pendingCount = 0, successCount = 0, sidebarOpen, se
             </aside>
         </>
     );
-}
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { ChevronLeft, ChevronRight, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,14 +14,44 @@ import { POSLayout, usePOS } from '@/components/pos';
 
 const PAGE_SIZE = 8;
 
+const ProductCard = memo(function ProductCard({
+    product,
+    onClick,
+    formatPrice
+}: {
+    product: Product;
+    onClick: (p: Product) => void;
+    formatPrice: (pr: number) => string
+}) {
+    return (
+        <Card className="bg-white border-slate-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-200 cursor-pointer group" onClick={() => onClick(product)}>
+            <CardContent className="p-2 sm:p-3">
+                {product.image_url ? (
+                    <img src={product.image_url} alt={product.name} className="w-full h-16 sm:h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition" />
+                ) : (
+                    <div className="w-full h-16 sm:h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
+                        <span className="text-2xl sm:text-3xl">📦</span>
+                    </div>
+                )}
+                <h3 className="text-slate-800 font-medium text-xs sm:text-sm truncate">{product.name}</h3>
+                <Badge variant="outline" className="text-[10px] sm:text-xs border-indigo-300 text-indigo-600 bg-indigo-50 mt-1">{product.category}</Badge>
+                <div className="mt-1">
+                    <span className="text-green-600 font-mono text-xs sm:text-sm font-semibold">
+                        {formatPrice(product.price)}
+                        <span className="text-gray-500 font-normal">/{product.unit_type === 'weight' ? 'kg' : product.unit_type === 'pcs' ? 'pcs' : 'item'}</span>
+                    </span>
+                </div>
+            </CardContent>
+        </Card>
+    );
+});
+
 export default function OrderPage() {
     const {
         handleProductClick,
         setScannerDialogOpen,
         formatPrice,
         store,
-        loading: globalLoading,
-        setLoading: setGlobalLoading,
     } = usePOS();
 
     const [products, setProducts] = useState<Product[]>([]);
@@ -58,10 +88,12 @@ export default function OrderPage() {
     const handleBarcodeSearch = async (barcode: string) => {
         try {
             const product = await productApi.getByBarcode(barcode);
-            handleProductClick(product);
-            setSearchTerm('');
-        } catch {
-            // Product not found - will be handled by toast in context
+            if (product) {
+                handleProductClick(product);
+                setSearchTerm('');
+            }
+        } catch (error) {
+            console.error('Barcode search failed:', error);
         }
     };
 
@@ -70,7 +102,7 @@ export default function OrderPage() {
     };
 
     return (
-        <POSLayout title="🛒 New Order" description={store?.name || 'Select products to add to cart'}>
+        <POSLayout title="🛒 New Order" description={store?.name || 'Select products'}>
             {/* Search and Scan Bar */}
             <div className="flex gap-2 mb-4">
                 <Input
@@ -78,24 +110,21 @@ export default function OrderPage() {
                     value={searchTerm}
                     onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                     onKeyDown={handleSearchKeyPress}
-                    className="flex-1 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
+                    className="flex-1 bg-white border-slate-300"
                 />
-                <Button variant="outline" size="sm" onClick={() => setScannerDialogOpen(true)}
-                    className="border-slate-300 text-slate-700 bg-white hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600">
+                <Button variant="outline" size="sm" onClick={() => setScannerDialogOpen(true)} className="border-slate-300">
                     <ScanLine className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Scan</span>
                 </Button>
             </div>
 
-            {/* Category Tabs */}
-            <div className="flex gap-2 mb-4 items-center overflow-x-auto pb-2">
-                <Button variant={activeCategory === 'all' ? 'default' : 'outline'} size="sm"
-                    onClick={() => { setActiveCategory('all'); setCurrentPage(1); }}
-                    className={`shrink-0 ${activeCategory === 'all' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600'}`}>
+            {/* Category selection */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                <Button variant={activeCategory === 'all' ? 'default' : 'outline'} size="sm" onClick={() => { setActiveCategory('all'); setCurrentPage(1); }}>
                     All
                 </Button>
                 <Select value={activeCategory !== 'all' ? activeCategory : ''} onValueChange={(value) => { setActiveCategory(value); setCurrentPage(1); }}>
-                    <SelectTrigger className={`w-[140px] sm:w-[180px] h-9 text-sm shrink-0 ${activeCategory !== 'all' ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 [&_svg]:text-white' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:border-indigo-400'}`}>
+                    <SelectTrigger className="w-[140px] sm:w-[180px] h-9 text-sm">
                         <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -112,25 +141,12 @@ export default function OrderPage() {
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                     {products.map((product) => (
-                        <Card key={product.id} className="bg-white border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100 transition-all duration-200 cursor-pointer group" onClick={() => handleProductClick(product)}>
-                            <CardContent className="p-2 sm:p-3">
-                                {product.image_url ? (
-                                    <img src={product.image_url} alt={product.name} className="w-full h-16 sm:h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition" />
-                                ) : (
-                                    <div className="w-full h-16 sm:h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
-                                        <span className="text-2xl sm:text-3xl">📦</span>
-                                    </div>
-                                )}
-                                <h3 className="text-slate-800 font-medium text-xs sm:text-sm truncate">{product.name}</h3>
-                                <Badge variant="outline" className="text-[10px] sm:text-xs border-indigo-300 text-indigo-600 bg-indigo-50 mt-1">{product.category}</Badge>
-                                <div className="mt-1">
-                                    <span className="text-green-600 font-mono text-xs sm:text-sm font-semibold">
-                                        {formatPrice(product.price)}
-                                        {product.unit_type === 'weight' ? <span className="text-gray-500">/kg</span> : product.unit_type === 'pcs' ? <span className="text-gray-500">/pcs</span> : <span className="text-gray-500">/item</span>}
-                                    </span>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <ProductCard
+                            key={product.id}
+                            product={product}
+                            onClick={handleProductClick}
+                            formatPrice={formatPrice}
+                        />
                     ))}
                 </div>
             )}
@@ -138,11 +154,11 @@ export default function OrderPage() {
             {/* Pagination */}
             {!loading && totalProducts > PAGE_SIZE && (
                 <div className="flex items-center justify-center gap-2 sm:gap-4 mt-6 pb-4">
-                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
                         <ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline ml-1">Previous</span>
                     </Button>
                     <span className="text-sm text-slate-600">{currentPage} / {Math.ceil(totalProducts / PAGE_SIZE)}</span>
-                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalProducts / PAGE_SIZE), prev + 1))} disabled={currentPage >= Math.ceil(totalProducts / PAGE_SIZE)} className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalProducts / PAGE_SIZE), prev + 1))} disabled={currentPage >= Math.ceil(totalProducts / PAGE_SIZE)}>
                         <span className="hidden sm:inline mr-1">Next</span><ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>

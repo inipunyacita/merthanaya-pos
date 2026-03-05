@@ -1,5 +1,6 @@
 'use client';
 
+import React, { memo } from 'react';
 import { X, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,7 +22,7 @@ interface CartItemRowProps {
     compact?: boolean;
 }
 
-function CartItemRow({ item, formatPrice, updateCartQuantity, removeFromCart, compact }: CartItemRowProps) {
+const CartItemRow = memo(function CartItemRow({ item, formatPrice, updateCartQuantity, removeFromCart, compact }: CartItemRowProps) {
     const step = item.product.unit_type === 'weight' ? 0.1 : 1;
     const unitLabel = item.product.unit_type === 'weight' ? 'kg' : item.product.unit_type === 'pcs' ? 'pcs' : 'item';
 
@@ -67,9 +68,9 @@ function CartItemRow({ item, formatPrice, updateCartQuantity, removeFromCart, co
             </div>
         </div>
     );
-}
+});
 
-export function POSCart() {
+export const POSCart = memo(function POSCart() {
     const {
         cart,
         cartTotal,
@@ -216,4 +217,4 @@ export function POSCart() {
             </div>
         </>
     );
-}
+});
