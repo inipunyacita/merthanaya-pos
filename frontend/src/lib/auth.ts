@@ -203,17 +203,42 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 /**
- * Get access token for API requests with timeout
+ * Get access token for API requests with timeout and fallback
  */
 export async function getAccessToken(): Promise<string | null> {
     try {
         const sessionPromise = getSession();
         const timeoutPromise = new Promise<null>((resolve) => {
-            setTimeout(() => resolve(null), 8000); // 8s timeout for slow devices (token refresh needs network)
+            setTimeout(() => resolve(null), 8000); // 8s timeout for slow devices
         });
 
         const session = await Promise.race([sessionPromise, timeoutPromise]);
-        return session?.access_token || null;
+        if (session?.access_token) {
+            return session.access_token;
+        }
+
+        // FALLBACK for Android 9 / older browsers:
+        // If supabase.auth.getSession() returns null despite a valid session,
+        // read the token directly from localStorage as a fallback.
+        if (typeof window !== 'undefined' && window.localStorage) {
+            try {
+                const raw = localStorage.getItem('merthanaya-auth');
+                if (raw) {
+                    const stored = JSON.parse(raw);
+                    const expiresAt = stored?.expires_at;
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    // Only use the token if it hasn't expired
+                    if (stored?.access_token && expiresAt && expiresAt > nowSeconds) {
+                        console.log('[getAccessToken] Used localStorage fallback for token');
+                        return stored.access_token;
+                    }
+                }
+            } catch (e) {
+                // localStorage not available or JSON parse error
+            }
+        }
+
+        return null;
     } catch (err) {
         console.warn('[getAccessToken] Failed to fetch session:', err);
         return null;
