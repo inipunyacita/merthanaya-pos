@@ -68,7 +68,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for auth state changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('[AuthContext] Auth state change:', event);
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            if (event === 'SIGNED_IN') {
+                // signIn() already calls setUser() — only do a full refresh if
+                // there's no user yet (e.g. page restored from a persisted session)
+                if (session && !user) {
+                    await refreshUser();
+                }
+            } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
                 if (session) {
                     await refreshUser();
                 }

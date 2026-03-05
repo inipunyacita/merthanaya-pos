@@ -203,9 +203,17 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 /**
- * Get access token for API requests with timeout and fallback
+ * Get access token for API requests.
+ * Uses in-memory cache first (fast path) — zero latency after first login.
+ * Falls back to async Supabase session and then localStorage for older browsers.
  */
 export async function getAccessToken(): Promise<string | null> {
+    // ── Fast path: synchronous in-memory cache (no async, no overhead) ──
+    const { getCachedToken } = await import('./supabase');
+    const cached = getCachedToken();
+    if (cached) return cached;
+
+    // ── Slow path: async Supabase session (needed on first load or after restart) ──
     try {
         const sessionPromise = getSession();
         const timeoutPromise = new Promise<null>((resolve) => {
@@ -217,9 +225,7 @@ export async function getAccessToken(): Promise<string | null> {
             return session.access_token;
         }
 
-        // FALLBACK for Android 9 / older browsers:
-        // If supabase.auth.getSession() returns null despite a valid session,
-        // read the token directly from localStorage as a fallback.
+        // ── Fallback: direct localStorage read for Android 9 compat ──
         if (typeof window !== 'undefined' && window.localStorage) {
             try {
                 const raw = localStorage.getItem('merthanaya-auth');
@@ -227,7 +233,6 @@ export async function getAccessToken(): Promise<string | null> {
                     const stored = JSON.parse(raw);
                     const expiresAt = stored?.expires_at;
                     const nowSeconds = Math.floor(Date.now() / 1000);
-                    // Only use the token if it hasn't expired
                     if (stored?.access_token && expiresAt && expiresAt > nowSeconds) {
                         console.log('[getAccessToken] Used localStorage fallback for token');
                         return stored.access_token;
