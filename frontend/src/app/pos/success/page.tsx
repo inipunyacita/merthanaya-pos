@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { OrderSummary } from '@/types';
 import { orderApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
-import { POSLayout, usePOS } from '@/components/pos';
+import { POSLayout, usePOSState, usePOSActions } from '@/components/pos';
 import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from 'sonner';
 
@@ -52,7 +52,7 @@ const SuccessOrderCard = memo(function SuccessOrderCard({
 });
 
 export default function SuccessPage() {
-    const { handlePrintInvoice, formatPrice, formatDateTime, setSuccessOrdersCount } = usePOS();
+    const { handlePrintInvoice, formatPrice, formatDateTime, setSuccessOrdersCount } = usePOSActions();
 
     const [paidOrders, setPaidOrders] = useState<OrderSummary[]>([]);
     const [loading, setLoading] = useState(true);

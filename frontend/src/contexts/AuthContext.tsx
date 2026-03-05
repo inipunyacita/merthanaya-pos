@@ -49,10 +49,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     console.warn('[AuthContext] Auth initialization taking too long, forcing loading to false');
                     setLoading(false);
                 }
-            }, 5000); // 5s absolute maximum wait
+            }, 10000); // Increased to 10s for slow Android 9 devices
 
             try {
-                await refreshUser();
+                // Parallelize user refresh and store fetching for faster initial load
+                await Promise.all([
+                    refreshUser(),
+                    // We don't have direct access to fetchStore here, but we can call it 
+                    // if we move it to a shared lib or just let POSContext handle it.
+                    // Actually, AuthContext should only concern itself with the user.
+                    // POSContext already has useEffect for fetchStore.
+                ]);
                 console.log('[AuthContext] Auth initialized successfully');
             } catch (error) {
                 console.error('[AuthContext] Auth init error:', error);

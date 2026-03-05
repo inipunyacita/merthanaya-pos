@@ -8,7 +8,7 @@ import { Toaster } from 'sonner';
 import { POSSidebar } from './POSSidebar';
 import { POSCart } from './POSCart';
 import { POSDialogs } from './POSDialogs';
-import { usePOS } from './POSContext';
+import { usePOSState, usePOSActions } from './POSContext';
 
 interface POSLayoutProps {
     children: React.ReactNode;
@@ -32,13 +32,12 @@ export function POSLayout({
     onSearchKeyDown,
 }: POSLayoutProps) {
     const {
-        store,
-        cart,
-        setCartOpen,
-        setScannerDialogOpen,
-        pendingOrdersCount,
-        successOrdersCount,
-    } = usePOS();
+        store, cart, pendingOrdersCount, successOrdersCount
+    } = usePOSState();
+
+    const {
+        setCartOpen, setScannerDialogOpen
+    } = usePOSActions();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
 

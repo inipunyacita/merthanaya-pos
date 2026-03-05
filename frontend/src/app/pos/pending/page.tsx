@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { OrderSummary } from '@/types';
 import { orderApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
-import { POSLayout, usePOS } from '@/components/pos';
+import { POSLayout, usePOSState, usePOSActions } from '@/components/pos';
 import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from 'sonner';
 
@@ -49,7 +49,7 @@ const OrderCard = memo(function OrderCard({
 });
 
 export default function PendingPage() {
-    const { handleViewDetails, formatPrice, formatSmartDate, setRefreshPendingOrders, setPendingOrdersCount } = usePOS();
+    const { formatPrice, formatSmartDate, handleViewDetails, setRefreshPendingOrders, setPendingOrdersCount } = usePOSActions();
 
     const [pendingOrders, setPendingOrders] = useState<OrderSummary[]>([]);
     const [loading, setLoading] = useState(true);

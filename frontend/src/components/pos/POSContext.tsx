@@ -1,92 +1,73 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import { Product, CartItem, Store, Order, OrderSummary, ProductCreate } from '@/types';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode, useMemo } from 'react';
+import { Product, CartItem, Store, Order, OrderSummary, ProductCreate, TicketInfo } from '@/types';
 import { productApi, orderApi, storeApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 
 // === TYPES ===
-interface TicketInfo {
-    shortId: string;
-    invoiceId: string;
-    total: number;
-    items: CartItem[];
-    createdAt: Date;
-}
-
-interface POSContextType {
-    // Auth/Store
+interface POSState {
     store: Store | null;
-    fetchStore: () => Promise<void>;
-
-    // Cart State
     cart: CartItem[];
     cartTotal: number;
+    cartOpen: boolean;
+    quantityDialogOpen: boolean;
+    selectedProduct: Product | null;
+    quantity: string;
+    quantityInputMode: 'weight' | 'nominal';
+    nominalAmount: string;
+    unit: string;
+    scannerDialogOpen: boolean;
+    ticketDialogOpen: boolean;
+    lastTicket: TicketInfo | null;
+    submitting: boolean;
+    selectedOrder: Order | null;
+    detailsDialogOpen: boolean;
+    invoiceDialogOpen: boolean;
+    invoiceOrder: Order | null;
+    processing: boolean;
+    productDialogOpen: boolean;
+    editingProduct: Product | null;
+    formData: ProductCreate;
+    productScannerOpen: boolean;
+    loading: boolean;
+    pendingOrdersCount: number;
+    successOrdersCount: number;
+}
+
+interface POSActions {
+    fetchStore: () => Promise<void>;
     addToCart: (product: Product, qty: number) => void;
     updateCartQuantity: (productId: string, qty: number) => void;
     removeFromCart: (productId: string) => void;
     clearCart: () => void;
-
-    // Cart UI
-    cartOpen: boolean;
     setCartOpen: (open: boolean) => void;
-
-    // Quantity Dialog State
-    quantityDialogOpen: boolean;
     setQuantityDialogOpen: (open: boolean) => void;
-    selectedProduct: Product | null;
     setSelectedProduct: (product: Product | null) => void;
-    quantity: string;
     setQuantity: (qty: string) => void;
-    quantityInputMode: 'weight' | 'nominal';
     setQuantityInputMode: (mode: 'weight' | 'nominal') => void;
-    nominalAmount: string;
     setNominalAmount: (amount: string) => void;
     handleQuantitySubmit: () => void;
     handleProductClick: (product: Product) => void;
-    unit: string;
     setUnit: (unit: string) => void;
-
-    // Scanner
-    scannerDialogOpen: boolean;
     setScannerDialogOpen: (open: boolean) => void;
     handleBarcodeScan: (barcode: string) => Promise<void>;
-
-    // Ticket Dialog
-    ticketDialogOpen: boolean;
     setTicketDialogOpen: (open: boolean) => void;
-    lastTicket: TicketInfo | null;
-
-    // Order Creation
-    submitting: boolean;
     handlePrintBill: () => Promise<void>;
-
-    // Order Operations
-    selectedOrder: Order | null;
     setSelectedOrder: (order: Order | null) => void;
-    detailsDialogOpen: boolean;
     setDetailsDialogOpen: (open: boolean) => void;
-    invoiceDialogOpen: boolean;
     setInvoiceDialogOpen: (open: boolean) => void;
-    invoiceOrder: Order | null;
     setInvoiceOrder: (order: Order | null) => void;
     printInvoice: () => void;
-    processing: boolean;
     handleViewDetails: (orderId: string) => Promise<void>;
     handlePrintInvoice: (orderId: string) => Promise<void>;
     handlePayOrder: (orderId: string) => Promise<void>;
     handleCancelOrder: (orderId: string) => Promise<void>;
-
-    // Product Form State (for manage products)
-    productDialogOpen: boolean;
     setProductDialogOpen: (open: boolean) => void;
-    editingProduct: Product | null;
     setEditingProduct: (product: Product | null) => void;
-    formData: ProductCreate;
-    setFormData: (data: ProductCreate) => void;
-    productScannerOpen: boolean;
+    setFormData: (data: ProductCreate | ((prev: ProductCreate) => ProductCreate)) => void;
     setProductScannerOpen: (open: boolean) => void;
     resetProductForm: () => void;
     openProductDialog: (product?: Product) => void;
@@ -94,130 +75,90 @@ interface POSContextType {
     handleDeactivateProduct: (product: Product) => Promise<void>;
     handleReactivateProduct: (product: Product) => Promise<void>;
     handleDeleteProduct: (product: Product) => Promise<void>;
-
-    // Loading State
-    loading: boolean;
     setLoading: (loading: boolean) => void;
-
-    // Helper Functions
     formatPrice: (price: number) => string;
     formatTime: (dateString: string) => string;
     formatDateTime: (dateString: string) => string;
     formatSmartDate: (dateString: string) => string;
-
-    // Refresh callbacks for views
     refreshProducts: () => void;
     setRefreshProducts: (callback: () => void) => void;
     refreshPendingOrders: () => void;
     setRefreshPendingOrders: (callback: () => void) => void;
-
-    // Scan override — lets a page intercept scanner events (e.g. to search instead of add to cart)
     setScanOverride: (fn: ((barcode: string) => void) | null) => void;
-
-    // Order counts for sidebar badges
-    pendingOrdersCount: number;
-    successOrdersCount: number;
     setPendingOrdersCount: (count: number) => void;
     setSuccessOrdersCount: (count: number) => void;
 }
 
-const POSContext = createContext<POSContextType | undefined>(undefined);
+const POSStateContext = createContext<POSState | undefined>(undefined);
+const POSActionsContext = createContext<POSActions | undefined>(undefined);
 
 export function POSProvider({ children }: { children: ReactNode }) {
-    // Store State
+    // State
     const [store, setStore] = useState<Store | null>(null);
-
-    // Cart State
     const [cart, setCart] = useState<CartItem[]>([]);
     const [cartOpen, setCartOpen] = useState(false);
-
-    // Quantity Dialog State
     const [quantityDialogOpen, setQuantityDialogOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [quantity, setQuantity] = useState<string>('1');
     const [quantityInputMode, setQuantityInputMode] = useState<'weight' | 'nominal'>('weight');
     const [nominalAmount, setNominalAmount] = useState<string>('');
     const [unit, setUnit] = useState<string>('');
-
-    // Scanner State
     const [scannerDialogOpen, setScannerDialogOpen] = useState(false);
-
-    // Ticket State
     const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
     const [lastTicket, setLastTicket] = useState<TicketInfo | null>(null);
-
-    // Order Creation State
     const [submitting, setSubmitting] = useState(false);
-
-    // Order Operations State
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
     const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
     const [processing, setProcessing] = useState(false);
-
-    // Product Form State
     const [productDialogOpen, setProductDialogOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [formData, setFormData] = useState<ProductCreate>({
-        name: '',
-        category: 'Sembako',
-        price: 0,
-        stock: 0,
-        barcode: null,
-        image_url: null,
-        unit_type: 'item',
-        is_active: true,
+        name: '', category: 'Sembako', price: 0, stock: 0, barcode: null, image_url: null, unit_type: 'item', is_active: true,
     });
     const [productScannerOpen, setProductScannerOpen] = useState(false);
-
-    // Loading State
     const [loading, setLoading] = useState(false);
-
-    // Refresh callbacks
-    const [refreshProducts, setRefreshProducts] = useState<() => void>(() => () => { });
-    const [refreshPendingOrders, setRefreshPendingOrders] = useState<() => void>(() => () => { });
-
-    // Stable wrappers so context consumers don't re-run useEffect on every render
-    const setRefreshProductsStable = useCallback((cb: () => void) => setRefreshProducts(() => cb), []);
-    const setRefreshPendingOrdersStable = useCallback((cb: () => void) => setRefreshPendingOrders(() => cb), []);
-
-    // Scan override: a page can register a callback to intercept scanner events
-    // (e.g. the manage-products page uses this to filter the list instead of adding to cart)
-    const scanOverrideRef = useRef<((barcode: string) => void) | null>(null);
-    const setScanOverride = useCallback((fn: ((barcode: string) => void) | null) => {
-        scanOverrideRef.current = fn;
-    }, []);
-
-    // Order counts for sidebar badges
     const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
     const [successOrdersCount, setSuccessOrdersCount] = useState(0);
 
-    // === CART FUNCTIONS ===
-    const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    // Refs for non-reactive state
+    const [refreshProductsState, setRefreshProducts] = useState<() => void>(() => () => { });
+    const [refreshPendingOrdersState, setRefreshPendingOrders] = useState<() => void>(() => () => { });
+    const scanOverrideRef = useRef<((barcode: string) => void) | null>(null);
+
+    // Cart Total (derived)
+    const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0), [cart]);
+
+    // Actions
+    const fetchStore = useCallback(async () => {
+        try {
+            const data = await storeApi.getMe();
+            setStore(data);
+        } catch (error) {
+            console.error('Failed to fetch store settings:', error);
+        }
+    }, []);
+
+    useEffect(() => { fetchStore(); }, [fetchStore]);
 
     const addToCart = useCallback((product: Product, qty: number) => {
         setCart((prev) => {
             const existing = prev.find((item) => item.product.id === product.id);
             if (existing) {
-                return prev.map((item) =>
-                    item.product.id === product.id ? { ...item, quantity: item.quantity + qty } : item
-                );
+                return prev.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + qty } : item);
             }
             return [...prev, { product, quantity: qty }];
         });
-        toast.success(`Added ${product.name} to cart`);
+        toast.success(`Added ${product.name}`);
     }, []);
 
     const updateCartQuantity = useCallback((productId: string, qty: number) => {
         const roundedQty = Math.round(qty * 100) / 100;
-        if (roundedQty <= 0) {
-            setCart((prev) => prev.filter((item) => item.product.id !== productId));
-        } else {
-            setCart((prev) => prev.map((item) =>
-                item.product.id === productId ? { ...item, quantity: roundedQty } : item
-            ));
-        }
+        setCart((prev) => roundedQty <= 0
+            ? prev.filter((item) => item.product.id !== productId)
+            : prev.map((item) => item.product.id === productId ? { ...item, quantity: roundedQty } : item)
+        );
     }, []);
 
     const removeFromCart = useCallback((productId: string) => {
@@ -240,18 +181,15 @@ export function POSProvider({ children }: { children: ReactNode }) {
 
     const handleQuantitySubmit = useCallback(() => {
         if (!selectedProduct) return;
-
         let qty = 0;
         if (quantityInputMode === 'weight') {
             qty = parseFloat(quantity);
         } else {
             const nominal = parseFloat(nominalAmount);
             if (nominal > 0 && selectedProduct.price > 0) {
-                qty = nominal / selectedProduct.price;
-                qty = Math.round(qty * 100) / 100;
+                qty = Math.round((nominal / selectedProduct.price) * 100) / 100;
             }
         }
-
         if (qty > 0) {
             addToCart(selectedProduct, qty);
             setQuantityDialogOpen(false);
@@ -263,13 +201,11 @@ export function POSProvider({ children }: { children: ReactNode }) {
 
     const handleBarcodeScan = useCallback(async (barcode: string) => {
         setScannerDialogOpen(false);
-        // If the product scanner dialog is open, fill the barcode field instead of looking up a product
         if (productScannerOpen) {
             setFormData((prev) => ({ ...prev, barcode }));
             setProductScannerOpen(false);
             return;
         }
-        // If a page has registered an override (e.g. manage products), delegate to it
         if (scanOverrideRef.current) {
             scanOverrideRef.current(barcode);
             return;
@@ -278,353 +214,194 @@ export function POSProvider({ children }: { children: ReactNode }) {
             const product = await productApi.getByBarcode(barcode);
             if (product) {
                 handleProductClick(product);
-                toast.success('Product Found', { description: `Found "${product.name}"`, duration: 2000 });
+                toast.success('Found: ' + product.name);
             }
         } catch {
-            toast.error('Product Not Found', { description: `No product with code "${barcode}"` });
+            toast.error('Not Found: ' + barcode);
         }
     }, [handleProductClick, productScannerOpen]);
 
-    // === ALWAYS-ON HARDWARE SCANNER ===
-    // Active globally across all POS pages. Ignores input when user is typing in a form field.
-    // Disabled when the product scanner dialog is open (it has its own dedicated listener).
     useHardwareScanner({
         onScan: handleBarcodeScan,
         enabled: !productScannerOpen,
         ignoreWhenInputFocused: true,
     });
 
-    // === STORE FUNCTIONS ===
-    const fetchStore = useCallback(async () => {
-        try {
-            const data = await storeApi.getMe();
-            setStore(data);
-        } catch (error) {
-            console.error('Failed to fetch store settings:', error);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchStore();
-    }, [fetchStore]);
-
-    // === ORDER FUNCTIONS ===
     const handlePrintBill = useCallback(async () => {
-        if (cart.length === 0) { toast.error('Cart is empty'); return; }
+        if (cart.length === 0) return;
         try {
             setSubmitting(true);
-            const orderData = { items: cart.map((item) => ({ product_id: item.product.id, quantity: item.quantity })) };
-            const response = await orderApi.create(orderData);
-            setLastTicket({
-                shortId: response.short_id,
-                invoiceId: response.invoice_id,
-                total: response.total_amount,
-                items: [...cart],
-                createdAt: new Date(),
-            });
+            const response = await orderApi.create({ items: cart.map(i => ({ product_id: i.product.id, quantity: i.quantity })) });
+            setLastTicket({ shortId: response.short_id, invoiceId: response.invoice_id, total: response.total_amount, items: [...cart], createdAt: new Date() });
             setTicketDialogOpen(true);
             setCartOpen(false);
             clearCart();
-            toast.success(`Order ${response.short_id} created!`);
-        } catch (error: unknown) {
-            const err = error as { response?: { data?: { detail?: string } } };
-            toast.error(err.response?.data?.detail || 'Failed to create order');
+            toast.success('Order created!');
         } finally {
             setSubmitting(false);
         }
     }, [cart, clearCart]);
 
-    const handleViewDetails = useCallback(async (orderId: string) => {
+    const handleViewDetails = useCallback(async (id: string) => {
         try {
-            const order = await orderApi.get(orderId);
+            const order = await orderApi.get(id);
             setSelectedOrder(order);
             setDetailsDialogOpen(true);
-        } catch (error) {
-            console.error('Failed to fetch order details:', error);
-            toast.error('Failed to load order details');
-        }
+        } catch (e) { toast.error('Failed to load order'); }
     }, []);
 
-    const handlePrintInvoice = useCallback(async (orderId: string) => {
+    const handlePrintInvoice = useCallback(async (id: string) => {
         try {
-            const order = await orderApi.get(orderId);
+            const order = await orderApi.get(id);
             setSelectedOrder(order);
             setInvoiceDialogOpen(true);
-        } catch (error) {
-            console.error('Failed to fetch order details:', error);
-            toast.error('Failed to load order details');
-        }
+        } catch (e) { toast.error('Failed to load invoice'); }
     }, []);
 
-    const handlePayOrder = useCallback(async (orderId: string) => {
+    const handlePayOrder = useCallback(async (id: string) => {
         try {
             setProcessing(true);
-            await orderApi.pay(orderId);
-            toast.success('Payment confirmed!');
+            await orderApi.pay(id);
             setDetailsDialogOpen(false);
-            setSelectedOrder(null);
-            refreshPendingOrders();
-        } catch (error: unknown) {
-            const err = error as { response?: { data?: { detail?: string } } };
-            toast.error(err.response?.data?.detail || 'Failed to process payment');
-        } finally {
-            setProcessing(false);
-        }
-    }, [refreshPendingOrders]);
+            refreshPendingOrdersState();
+            toast.success('Paid!');
+        } finally { setProcessing(false); }
+    }, [refreshPendingOrdersState]);
 
-    const handleCancelOrder = useCallback(async (orderId: string) => {
-        if (!confirm('Are you sure you want to cancel this order?')) return;
+    const handleCancelOrder = useCallback(async (id: string) => {
+        if (!confirm('Cancel?')) return;
         try {
             setProcessing(true);
-            await orderApi.cancel(orderId);
-            toast.success('Order cancelled');
+            await orderApi.cancel(id);
             setDetailsDialogOpen(false);
-            setSelectedOrder(null);
-            refreshPendingOrders();
-        } catch (error: unknown) {
-            const err = error as { response?: { data?: { detail?: string } } };
-            toast.error(err.response?.data?.detail || 'Failed to cancel order');
-        } finally {
-            setProcessing(false);
-        }
-    }, [refreshPendingOrders]);
+            refreshPendingOrdersState();
+        } finally { setProcessing(false); }
+    }, [refreshPendingOrdersState]);
 
-    const printInvoice = () => {
+    const printInvoice = useCallback(() => {
+        if (!invoiceOrder) return;
         const printWindow = window.open('', '_blank');
-        if (!printWindow || !invoiceOrder) return;
-
-        const formatPrice = (price: number) => {
-            const rounded = Math.round(price);
-            const formatted = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            return `Rp ${formatted}`;
-        };
-
-        const formatDateTime = (dateStr: string) => {
-            return new Date(dateStr).toLocaleString('id-ID', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        };
-
-        printWindow.document.write(`
-            <html>
-            <head>
-                <title>Invoice ${invoiceOrder.invoice_id}</title>
-                <style>
-                    body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
-                    .header { text-align: center; margin-bottom: 20px; }
-                    .store-name { font-size: 18px; font-weight: bold; }
-                    .invoice-id { font-size: 12px; color: #666; }
-                    .divider { border-top: 1px dashed #000; margin: 10px 0; }
-                    .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; }
-                    .total { font-size: 16px; font-weight: bold; margin-top: 10px; }
-                    .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="store-name">Merthanaya</div>
-                    <div class="invoice-id">${invoiceOrder.invoice_id}</div>
-                    <div class="invoice-id">Ticket: ${invoiceOrder.short_id}</div>
-                    <div class="invoice-id">${formatDateTime(invoiceOrder.created_at)}</div>
-                </div>
-                <div class="divider"></div>
-                ${invoiceOrder.items.map(item => `
-                    <div class="item">
-                        <span>${item.product_name} x${item.quantity}</span>
-                        <span>${formatPrice(item.subtotal)}</span>
-                    </div>
-                `).join('')}
-                <div class="divider"></div>
-                <div class="item total">
-                    <span>TOTAL</span>
-                    <span>${formatPrice(invoiceOrder.total_amount)}</span>
-                </div>
-                <div class="footer">
-                    <p>Thank you for your purchase!</p>
-                </div>
-            </body>
-            </html>
-        `);
+        if (!printWindow) return;
+        // Simple layout for thermal printer
+        printWindow.document.write(`<html><body style="font-family:monospace;width:300px;margin:0 auto;text-align:center;">
+            <h3>Merthanaya</h3><p>${invoiceOrder.invoice_id}</p><hr/>
+            ${invoiceOrder.items.map(i => `<div style="display:flex;justify-content:space-between"><span>${i.product_name} x${i.quantity}</span><span>Rp ${Math.round(i.subtotal)}</span></div>`).join('')}
+            <hr/><h3>TOTAL: Rp ${Math.round(invoiceOrder.total_amount)}</h3><p>Terima Kasih</p>
+            </body></html>`);
         printWindow.document.close();
         printWindow.print();
-    };
+    }, [invoiceOrder]);
 
-    // === PRODUCT MANAGEMENT FUNCTIONS ===
     const resetProductForm = useCallback(() => {
-        setFormData({
-            name: '',
-            category: 'Sembako',
-            price: 0,
-            stock: 0,
-            barcode: null,
-            image_url: null,
-            unit_type: 'item',
-            is_active: true,
-        });
+        setFormData({ name: '', category: 'Sembako', price: 0, stock: 0, barcode: null, image_url: null, unit_type: 'item', is_active: true });
         setEditingProduct(null);
     }, []);
 
-    const openProductDialog = useCallback((product?: Product) => {
-        if (product) {
-            setFormData({
-                name: product.name,
-                category: product.category,
-                price: product.price,
-                stock: product.stock,
-                barcode: product.barcode,
-                image_url: product.image_url,
-                unit_type: product.unit_type || 'item',
-                is_active: product.is_active,
-            });
-            setEditingProduct(product);
-        } else {
-            resetProductForm();
-        }
+    const openProductDialog = useCallback((p?: Product) => {
+        if (p) {
+            setFormData({ name: p.name, category: p.category, price: p.price, stock: p.stock, barcode: p.barcode, image_url: p.image_url, unit_type: p.unit_type || 'item', is_active: p.is_active });
+            setEditingProduct(p);
+        } else resetProductForm();
         setProductDialogOpen(true);
     }, [resetProductForm]);
 
     const handleProductSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            if (editingProduct) {
-                await productApi.update(editingProduct.id, formData);
-                toast.success(`${formData.name} has been updated`);
-            } else {
-                await productApi.create(formData);
-                toast.success(`${formData.name} has been created`);
-            }
+            if (editingProduct) await productApi.update(editingProduct.id, formData);
+            else await productApi.create(formData);
             setProductDialogOpen(false);
-            resetProductForm();
-            refreshProducts();
-        } catch (error) {
-            const err = error as { response?: { data?: { detail?: string } } };
-            const detail = err.response?.data?.detail;
-            console.error('Failed to save product:', error);
-            toast.error('Failed to save product', {
-                description: detail || 'Please check the product details and try again.',
-            });
-        }
-    }, [editingProduct, formData, resetProductForm, refreshProducts]);
+            refreshProductsState();
+            toast.success('Saved');
+        } catch (e) { toast.error('Failed'); }
+    }, [editingProduct, formData, refreshProductsState]);
 
-    const handleDeactivateProduct = useCallback(async (product: Product) => {
-        try {
-            await productApi.update(product.id, { is_active: false });
-            toast.success(`${product.name} deactivated`);
-            refreshProducts();
-        } catch (error) {
-            console.error('Failed to deactivate product:', error);
-            toast.error('Failed to deactivate product');
-        }
-    }, [refreshProducts]);
+    const handleDeactivateProduct = useCallback(async (p: Product) => {
+        try { await productApi.update(p.id, { is_active: false }); refreshProductsState(); } catch (e) { }
+    }, [refreshProductsState]);
 
-    const handleReactivateProduct = useCallback(async (product: Product) => {
-        try {
-            await productApi.update(product.id, { is_active: true });
-            toast.success(`${product.name} activated`);
-            refreshProducts();
-        } catch (error) {
-            console.error('Failed to reactivate product:', error);
-            toast.error('Failed to reactivate product');
-        }
-    }, [refreshProducts]);
+    const handleReactivateProduct = useCallback(async (p: Product) => {
+        try { await productApi.update(p.id, { is_active: true }); refreshProductsState(); } catch (e) { }
+    }, [refreshProductsState]);
 
-    const handleDeleteProduct = useCallback(async (product: Product) => {
-        if (!confirm(`Are you sure you want to delete "${product.name}"?`)) return;
-        try {
-            await productApi.delete(product.id);
-            toast.success(`${product.name} has been deleted`);
-            refreshProducts();
-        } catch (error) {
-            console.error('Failed to delete product:', error);
-            toast.error('Failed to delete product');
-        }
-    }, [refreshProducts]);
+    const handleDeleteProduct = useCallback(async (p: Product) => {
+        if (!confirm('Delete?')) return;
+        try { await productApi.delete(p.id); refreshProductsState(); } catch (e) { }
+    }, [refreshProductsState]);
 
-    // === HELPER FUNCTIONS ===
-    const formatPrice = useCallback((price: number) => {
-        const rounded = Math.round(price);
-        const formatted = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        return `Rp ${formatted}`;
-    }, []);
-
-    const formatTime = useCallback((dateString: string) =>
-        new Date(dateString).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), []);
-
-    const formatDateTime = useCallback((dateString: string) =>
-        new Date(dateString).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }), []);
-
-    const formatSmartDate = useCallback((dateString: string) => {
-        const date = new Date(dateString);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-        const orderDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        const time = formatTime(dateString);
-
-        if (orderDate.getTime() === today.getTime()) {
-            return `Created Today at ${time}`;
-        } else if (orderDate.getTime() === yesterday.getTime()) {
-            return `Created Yesterday at ${time}`;
-        } else {
-            return `Created at ${date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${time}`;
-        }
+    const formatPrice = useCallback((p: number) => `Rp ${Math.round(p).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`, []);
+    const formatTime = useCallback((s: string) => new Date(s).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), []);
+    const formatDateTime = useCallback((s: string) => new Date(s).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }), []);
+    const formatSmartDate = useCallback((s: string) => {
+        const d = new Date(s);
+        const tString = formatTime(s);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const target = new Date(d); target.setHours(0, 0, 0, 0);
+        if (today.getTime() === target.getTime()) return `Hari ini jam ${tString}`;
+        return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${tString}`;
     }, [formatTime]);
 
-    const value: POSContextType = React.useMemo(() => ({
-        store, fetchStore,
-        cart, cartTotal, addToCart, updateCartQuantity, removeFromCart, clearCart,
-        cartOpen, setCartOpen,
-        quantityDialogOpen, setQuantityDialogOpen, selectedProduct, setSelectedProduct,
-        quantity, setQuantity, quantityInputMode, setQuantityInputMode,
-        unit, setUnit,
-        nominalAmount, setNominalAmount, handleQuantitySubmit, handleProductClick,
-        scannerDialogOpen, setScannerDialogOpen, handleBarcodeScan,
-        ticketDialogOpen, setTicketDialogOpen, lastTicket,
-        submitting, handlePrintBill,
-        selectedOrder, setSelectedOrder, detailsDialogOpen, setDetailsDialogOpen,
-        invoiceDialogOpen, setInvoiceDialogOpen, processing, invoiceOrder, setInvoiceOrder, printInvoice,
-        handleViewDetails, handlePrintInvoice, handlePayOrder, handleCancelOrder,
-        productDialogOpen, setProductDialogOpen, editingProduct, setEditingProduct,
-        formData, setFormData, productScannerOpen, setProductScannerOpen,
-        resetProductForm, openProductDialog, handleProductSubmit,
-        handleDeactivateProduct, handleReactivateProduct, handleDeleteProduct,
-        loading, setLoading,
-        formatPrice, formatTime, formatDateTime, formatSmartDate,
-        refreshProducts, setRefreshProducts: setRefreshProductsStable,
-        refreshPendingOrders, setRefreshPendingOrders: setRefreshPendingOrdersStable,
-        setScanOverride,
-        pendingOrdersCount, successOrdersCount, setPendingOrdersCount, setSuccessOrdersCount,
+    const stateValue = useMemo(() => ({
+        store, cart, cartTotal, cartOpen, quantityDialogOpen, selectedProduct, quantity, quantityInputMode,
+        nominalAmount, unit, scannerDialogOpen, ticketDialogOpen, lastTicket, submitting, selectedOrder,
+        detailsDialogOpen, invoiceDialogOpen, invoiceOrder, processing, productDialogOpen, editingProduct,
+        formData, productScannerOpen, loading, pendingOrdersCount, successOrdersCount
     }), [
-        store, fetchStore, cart, cartTotal, addToCart, updateCartQuantity, removeFromCart,
-        clearCart, cartOpen, setCartOpen, quantityDialogOpen, setQuantityDialogOpen,
-        selectedProduct, setSelectedProduct, quantity, setQuantity, quantityInputMode,
-        setQuantityInputMode, unit, setUnit, nominalAmount, setNominalAmount,
-        handleQuantitySubmit, handleProductClick, scannerDialogOpen, setScannerDialogOpen,
-        handleBarcodeScan, ticketDialogOpen, setTicketDialogOpen, lastTicket,
-        submitting, handlePrintBill, selectedOrder, setSelectedOrder,
-        detailsDialogOpen, setDetailsDialogOpen, invoiceDialogOpen, setInvoiceDialogOpen,
-        processing, invoiceOrder, setInvoiceOrder, printInvoice, handleViewDetails,
-        handlePrintInvoice, handlePayOrder, handleCancelOrder, productDialogOpen,
-        setProductDialogOpen, editingProduct, setEditingProduct, formData, setFormData,
-        productScannerOpen, setProductScannerOpen, resetProductForm, openProductDialog,
-        handleProductSubmit, handleDeactivateProduct, handleReactivateProduct,
-        handleDeleteProduct, loading, setLoading, formatPrice, formatTime,
-        formatDateTime, formatSmartDate, refreshProducts, setRefreshProductsStable,
-        refreshPendingOrders, setRefreshPendingOrdersStable, setScanOverride,
-        pendingOrdersCount, successOrdersCount,
+        store, cart, cartTotal, cartOpen, quantityDialogOpen, selectedProduct, quantity, quantityInputMode,
+        nominalAmount, unit, scannerDialogOpen, ticketDialogOpen, lastTicket, submitting, selectedOrder,
+        detailsDialogOpen, invoiceDialogOpen, invoiceOrder, processing, productDialogOpen, editingProduct,
+        formData, productScannerOpen, loading, pendingOrdersCount, successOrdersCount
     ]);
 
-    return <POSContext.Provider value={value}>{children}</POSContext.Provider>;
+    const actionsValue = useMemo(() => ({
+        fetchStore, addToCart, updateCartQuantity, removeFromCart, clearCart, setCartOpen, setQuantityDialogOpen,
+        setSelectedProduct, setQuantity, setQuantityInputMode, setNominalAmount, handleQuantitySubmit,
+        handleProductClick, setUnit, setScannerDialogOpen, handleBarcodeScan, setTicketDialogOpen,
+        handlePrintBill, setSelectedOrder, setDetailsDialogOpen, setInvoiceDialogOpen, setInvoiceOrder,
+        printInvoice, handleViewDetails, handlePrintInvoice, handlePayOrder, handleCancelOrder, setProductDialogOpen,
+        setEditingProduct, setFormData, setProductScannerOpen, resetProductForm, openProductDialog, handleProductSubmit,
+        handleDeactivateProduct, handleReactivateProduct, handleDeleteProduct, setLoading, formatPrice,
+        formatTime, formatDateTime, formatSmartDate,
+        refreshProducts: refreshProductsState, setRefreshProducts: (cb: () => void) => setRefreshProducts(() => cb),
+        refreshPendingOrders: refreshPendingOrdersState, setRefreshPendingOrders: (cb: () => void) => setRefreshPendingOrders(() => cb),
+        setScanOverride: (fn: ((b: string) => void) | null) => { scanOverrideRef.current = fn; },
+        setPendingOrdersCount, setSuccessOrdersCount
+    }), [
+        fetchStore, addToCart, updateCartQuantity, removeFromCart, clearCart, setCartOpen, setQuantityDialogOpen,
+        setSelectedProduct, setQuantity, setQuantityInputMode, setNominalAmount, handleQuantitySubmit,
+        handleProductClick, setUnit, setScannerDialogOpen, handleBarcodeScan, setTicketDialogOpen,
+        handlePrintBill, setSelectedOrder, setDetailsDialogOpen, setInvoiceDialogOpen, setInvoiceOrder,
+        printInvoice, handleViewDetails, handlePrintInvoice, handlePayOrder, handleCancelOrder, setProductDialogOpen,
+        setEditingProduct, setProductScannerOpen, resetProductForm, openProductDialog, handleProductSubmit,
+        handleDeactivateProduct, handleReactivateProduct, handleDeleteProduct, setLoading, formatPrice,
+        formatTime, formatDateTime, formatSmartDate, refreshProductsState, refreshPendingOrdersState
+    ]);
+
+    return (
+        <POSStateContext.Provider value={stateValue}>
+            <POSActionsContext.Provider value={actionsValue}>
+                {children}
+            </POSActionsContext.Provider>
+        </POSStateContext.Provider>
+    );
 }
 
 export function usePOS() {
-    const context = useContext(POSContext);
-    if (context === undefined) {
-        throw new Error('usePOS must be used within a POSProvider');
-    }
+    const s = useContext(POSStateContext);
+    const a = useContext(POSActionsContext);
+    if (!s || !a) throw new Error('usePOS must be used within a POSProvider');
+    return { ...s, ...a };
+}
+
+// Optimized hooks for specific parts of the state to avoid large context re-renders
+export function usePOSActions() {
+    const context = useContext(POSActionsContext);
+    if (!context) throw new Error('usePOSActions must be used within a POSProvider');
+    return context;
+}
+
+export function usePOSState() {
+    const context = useContext(POSStateContext);
+    if (!context) throw new Error('usePOSState must be used within a POSProvider');
     return context;
 }

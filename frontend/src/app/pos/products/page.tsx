@@ -15,26 +15,21 @@ import { productApi } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { useHardwareScanner } from '@/hooks/useHardwareScanner';
-import { POSLayout, usePOS } from '@/components/pos';
+import { POSLayout, usePOSState, usePOSActions } from '@/components/pos';
 import { toast } from 'sonner';
 
 const MANAGE_PAGE_SIZE = 10;
 
 export default function ManageProductsPage() {
     const {
-        formatPrice,
-        productDialogOpen, setProductDialogOpen,
-        editingProduct,
-        formData, setFormData,
-        productScannerOpen, setProductScannerOpen,
-        openProductDialog,
-        handleProductSubmit,
-        handleDeactivateProduct,
-        handleReactivateProduct,
-        handleDeleteProduct,
-        setRefreshProducts,
-        setScanOverride,
-    } = usePOS();
+        productDialogOpen, editingProduct, formData, productScannerOpen
+    } = usePOSState();
+
+    const {
+        formatPrice, setProductDialogOpen, setFormData, setProductScannerOpen,
+        openProductDialog, handleProductSubmit, handleDeactivateProduct,
+        handleReactivateProduct, handleDeleteProduct, setRefreshProducts, setScanOverride,
+    } = usePOSActions();
 
     const [managedProducts, setManagedProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);

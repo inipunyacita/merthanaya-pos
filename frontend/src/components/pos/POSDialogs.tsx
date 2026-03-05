@@ -9,15 +9,30 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
-import { usePOS } from './POSContext';
+import { usePOSState, usePOSActions } from './POSContext';
+import { Product, TicketInfo, Order, Store } from '@/types';
 
 // --- SUB-COMPONENTS (MEMOIZED) ---
+
+interface QuantityDialogProps {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    product: Product | null;
+    quantity: string;
+    setQuantity: (q: string) => void;
+    inputMode: 'weight' | 'nominal';
+    setInputMode: (m: 'weight' | 'nominal') => void;
+    nominal: string;
+    setNominal: (n: string) => void;
+    onSubmit: () => void;
+    formatPrice: (p: number) => string;
+}
 
 const QuantityDialog = memo(({
     open, setOpen, product, quantity, setQuantity,
     inputMode, setInputMode, nominal, setNominal,
     onSubmit, formatPrice
-}: any) => (
+}: QuantityDialogProps) => (
     <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[360px] lg:max-w-[420px] xl:max-w-[500px] border-slate-200 shadow-xl">
             <DialogHeader>
@@ -75,7 +90,14 @@ const QuantityDialog = memo(({
     </Dialog>
 ));
 
-const TicketDialog = memo(({ open, setOpen, ticket, formatPrice }: any) => (
+interface TicketDialogProps {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    ticket: TicketInfo | null;
+    formatPrice: (p: number) => string;
+}
+
+const TicketDialog = memo(({ open, setOpen, ticket, formatPrice }: TicketDialogProps) => (
     <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[90vw] sm:max-w-[400px] p-0 overflow-hidden">
             <DialogTitle className="sr-only">Order Ticket {ticket?.shortId}</DialogTitle>
@@ -85,7 +107,7 @@ const TicketDialog = memo(({ open, setOpen, ticket, formatPrice }: any) => (
             </div>
             <div className="p-4">
                 <ScrollArea className="max-h-48">
-                    {ticket?.items.map((item: any) => (
+                    {ticket?.items.map((item) => (
                         <div key={item.product.id} className="flex justify-between py-2 border-b">
                             <span className="text-sm">{item.product.name} x{item.quantity}</span>
                             <span className="font-semibold">{formatPrice(item.product.price * item.quantity)}</span>
@@ -105,7 +127,13 @@ const TicketDialog = memo(({ open, setOpen, ticket, formatPrice }: any) => (
     </Dialog>
 ));
 
-const ScannerDialog = memo(({ open, setOpen, onScan }: any) => (
+interface ScannerDialogProps {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    onScan: (barcode: string) => void;
+}
+
+const ScannerDialog = memo(({ open, setOpen, onScan }: ScannerDialogProps) => (
     <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[90vw] sm:max-w-[420px]">
             <DialogHeader>
@@ -116,12 +144,22 @@ const ScannerDialog = memo(({ open, setOpen, onScan }: any) => (
     </Dialog>
 ));
 
-const OrderDetailsDialog = memo(({ open, setOpen, order, processing, onPay, onCancel, formatPrice }: any) => (
+interface OrderDetailsDialogProps {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    order: Order | null;
+    processing: boolean;
+    onPay: (id: string) => void;
+    onCancel: (id: string) => void;
+    formatPrice: (p: number) => string;
+}
+
+const OrderDetailsDialog = memo(({ open, setOpen, order, processing, onPay, onCancel, formatPrice }: OrderDetailsDialogProps) => (
     <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[90vw] sm:max-w-[500px]">
             <DialogHeader><DialogTitle className="text-yellow-600">{order?.short_id}</DialogTitle></DialogHeader>
             <ScrollArea className="max-h-[40vh]">
-                {order?.items.map((item: any) => (
+                {order?.items.map((item) => (
                     <div key={item.id} className="flex justify-between py-2 border-b">
                         <span>{item.product_name} x{item.quantity}</span>
                         <span className="font-semibold">{formatPrice(item.subtotal)}</span>
@@ -134,14 +172,23 @@ const OrderDetailsDialog = memo(({ open, setOpen, order, processing, onPay, onCa
                 <span className="text-2xl font-bold">{formatPrice(order?.total_amount || 0)}</span>
             </div>
             <DialogFooter className="gap-2 shrink-0">
-                <Button variant="outline" onClick={() => onCancel(order.id)} disabled={processing} className="text-red-500">Cancel</Button>
-                <Button onClick={() => onPay(order.id)} disabled={processing} className="flex-1 bg-green-600">{processing ? '...' : 'Confirm Payment'}</Button>
+                <Button variant="outline" onClick={() => order && onCancel(order.id)} disabled={processing} className="text-red-500">Cancel</Button>
+                <Button onClick={() => order && onPay(order.id)} disabled={processing} className="flex-1 bg-green-600">{processing ? '...' : 'Confirm Payment'}</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
 ));
 
-const InvoiceDialog = memo(({ open, setOpen, order, store, formatPrice, formatDateTime }: any) => (
+interface InvoiceDialogProps {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    order: Order | null;
+    store: Store | null;
+    formatPrice: (p: number) => string;
+    formatDateTime: (d: string) => string;
+}
+
+const InvoiceDialog = memo(({ open, setOpen, order, store, formatPrice, formatDateTime }: InvoiceDialogProps) => (
     <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[90vw] sm:max-w-[400px] p-0 overflow-hidden print:shadow-none">
             <DialogTitle className="sr-only">Invoice {order?.short_id}</DialogTitle>
@@ -152,7 +199,7 @@ const InvoiceDialog = memo(({ open, setOpen, order, store, formatPrice, formatDa
                 <div className="text-xs opacity-70">{order && formatDateTime(order.created_at)}</div>
             </div>
             <div className="p-4">
-                {order?.items.map((item: any) => (
+                {order?.items.map((item) => (
                     <div key={item.id} className="flex justify-between py-1 text-sm">
                         <span>{item.product_name} x{item.quantity}</span>
                         <span>{formatPrice(item.subtotal)}</span>
@@ -172,19 +219,19 @@ const InvoiceDialog = memo(({ open, setOpen, order, store, formatPrice, formatDa
 ));
 
 // --- MAIN WRAPPER ---
-// Only destructures what it needs, and passes strictly necessary props to memoized children.
 export function POSDialogs() {
     const {
-        quantityDialogOpen, setQuantityDialogOpen, selectedProduct,
-        quantity, setQuantity, quantityInputMode, setQuantityInputMode,
-        nominalAmount, setNominalAmount, handleQuantitySubmit,
-        scannerDialogOpen, setScannerDialogOpen, handleBarcodeScan,
-        ticketDialogOpen, setTicketDialogOpen, lastTicket,
-        selectedOrder, detailsDialogOpen, setDetailsDialogOpen,
-        processing, handlePayOrder, handleCancelOrder,
-        invoiceDialogOpen, setInvoiceDialogOpen, store,
-        formatPrice, formatDateTime,
-    } = usePOS();
+        quantityDialogOpen, selectedProduct, quantity, quantityInputMode,
+        nominalAmount, scannerDialogOpen, ticketDialogOpen, lastTicket,
+        selectedOrder, detailsDialogOpen, processing, invoiceDialogOpen, store,
+    } = usePOSState();
+
+    const {
+        setQuantityDialogOpen, setQuantity, setQuantityInputMode,
+        setNominalAmount, handleQuantitySubmit, setScannerDialogOpen, handleBarcodeScan,
+        setTicketDialogOpen, setDetailsDialogOpen, handlePayOrder, handleCancelOrder,
+        setInvoiceDialogOpen, formatPrice, formatDateTime,
+    } = usePOSActions();
 
     return (
         <>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Product, PRODUCT_CATEGORIES } from '@/types';
 import { productApi } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 import { POSLayout, usePOS } from '@/components/pos';
 
 const PAGE_SIZE = 8;
@@ -57,12 +58,15 @@ export default function OrderPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearch = useDebounce(searchTerm, 300);
+    const debouncedSearch = useDebounce(searchTerm, 400); // Slightly longer debounce for Android 9
     const [activeCategory, setActiveCategory] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalProducts, setTotalProducts] = useState(0);
 
-    const fetchProducts = useCallback(async () => {
+    // Use a ref for the input to support uncontrolled access (faster on old devices)
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const fetchProducts = useCallback(async (searchQuery?: string) => {
         try {
             setLoading(true);
             const params: { category?: string; search?: string; page?: number; page_size?: number } = {
@@ -70,7 +74,11 @@ export default function OrderPage() {
                 page_size: PAGE_SIZE
             };
             if (activeCategory !== 'all') params.category = activeCategory;
-            if (debouncedSearch) params.search = debouncedSearch;
+
+            // Use the passed query or the state
+            const targetSearch = searchQuery !== undefined ? searchQuery : debouncedSearch;
+            if (targetSearch) params.search = targetSearch;
+
             const response = await productApi.list(params);
             setProducts(response.products);
             setTotalProducts(response.total);
@@ -90,6 +98,8 @@ export default function OrderPage() {
             const product = await productApi.getByBarcode(barcode);
             if (product) {
                 handleProductClick(product);
+                // Clear input without triggering a full re-render cycle if possible
+                if (inputRef.current) inputRef.current.value = '';
                 setSearchTerm('');
             }
         } catch (error) {
@@ -97,8 +107,23 @@ export default function OrderPage() {
         }
     };
 
+    // Global hardware scanner listener — bypasses text input completely
+    useHardwareScanner({
+        onScan: handleBarcodeSearch,
+        enabled: true,
+        ignoreWhenInputFocused: false, // Catch even if they accidentally clicked the box
+    });
+
     const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && searchTerm.length > 5) handleBarcodeSearch(searchTerm);
+        if (e.key === 'Enter') {
+            const val = e.currentTarget.value;
+            if (val.length > 5) {
+                handleBarcodeSearch(val);
+            } else {
+                setSearchTerm(val);
+                fetchProducts(val);
+            }
+        }
     };
 
     return (
@@ -106,9 +131,15 @@ export default function OrderPage() {
             {/* Search and Scan Bar */}
             <div className="flex gap-2 mb-4">
                 <Input
+                    ref={inputRef}
                     placeholder="Search by name or scan barcode..."
-                    value={searchTerm}
-                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    defaultValue={searchTerm}
+                    onChange={(e) => {
+                        // We still set state for manual typing, but debouncedSearch 
+                        // will handle the actual API call to keep UI snappy
+                        setSearchTerm(e.target.value);
+                        if (currentPage !== 1) setCurrentPage(1);
+                    }}
                     onKeyDown={handleSearchKeyPress}
                     className="flex-1 bg-white border-slate-300"
                 />

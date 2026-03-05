@@ -4,7 +4,8 @@ import React, { memo } from 'react';
 import { X, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { usePOS } from './POSContext';
+import { usePOSState, usePOSActions } from './POSContext';
+import { CartItem } from '@/types';
 
 interface CartItemRowProps {
     item: {
@@ -72,17 +73,12 @@ const CartItemRow = memo(function CartItemRow({ item, formatPrice, updateCartQua
 
 export const POSCart = memo(function POSCart() {
     const {
-        cart,
-        cartTotal,
-        clearCart,
-        updateCartQuantity,
-        removeFromCart,
-        cartOpen,
-        setCartOpen,
-        submitting,
-        handlePrintBill,
-        formatPrice,
-    } = usePOS();
+        cart, cartTotal, cartOpen, submitting
+    } = usePOSState();
+
+    const {
+        clearCart, updateCartQuantity, removeFromCart, setCartOpen, handlePrintBill, formatPrice
+    } = usePOSActions();
 
     return (
         <>
@@ -109,7 +105,7 @@ export const POSCart = memo(function POSCart() {
                             <div className="text-center text-slate-400 py-8">Cart is empty</div>
                         ) : (
                             <div className="space-y-3 max-w-72">
-                                {cart.map((item) => (
+                                {cart.map((item: CartItem) => (
                                     <CartItemRow
                                         key={item.product.id}
                                         item={item}
@@ -187,7 +183,7 @@ export const POSCart = memo(function POSCart() {
                             <div className="text-center text-slate-400 py-8">Cart is empty</div>
                         ) : (
                             <div className="space-y-3">
-                                {cart.map((item) => (
+                                {cart.map((item: CartItem) => (
                                     <CartItemRow
                                         key={item.product.id}
                                         item={item}

@@ -1,4 +1,4 @@
-export { POSProvider, usePOS } from './POSContext';
+export { POSProvider, usePOS, usePOSState, usePOSActions } from './POSContext';
 export { POSLayout } from './POSLayout';
 export { POSSidebar } from './POSSidebar';
 export { POSCart } from './POSCart';

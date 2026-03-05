@@ -51,24 +51,24 @@ export function useHardwareScanner({
         (e: KeyboardEvent) => {
             if (!enabled) return;
 
-            // Optionally skip when user is focused on an input
-            if (ignoreWhenInputFocused) {
-                const target = e.target as HTMLElement;
-                const tagName = target?.tagName?.toLowerCase();
-                const isEditable =
-                    tagName === 'input' ||
-                    tagName === 'textarea' ||
-                    target?.isContentEditable;
-                if (isEditable) {
-                    // Still clear buffer to avoid stale chars bleeding out
-                    bufferRef.current = '';
-                    lastKeyTimeRef.current = 0;
-                    return;
-                }
-            }
-
             const now = Date.now();
             const gap = now - lastKeyTimeRef.current;
+
+            // Optional skip when user is focused on an input — UNLESS typing is inhumanly fast
+            // This allows the scanner to work even if the user accidentally clicked an input box.
+            const target = e.target as HTMLElement;
+            const isInput = target?.tagName?.toLowerCase() === 'input' || target?.tagName?.toLowerCase() === 'textarea' || target?.isContentEditable;
+
+            // Hardware scanners typically fire chars < 50ms apart. 
+            // If the gap is small, we treat it as scanner input regardless of focus.
+            const isFastTyping = gap > 0 && gap < scanTimeout;
+
+            if (ignoreWhenInputFocused && isInput && !isFastTyping && e.key !== 'Enter') {
+                // Regular human typing in a focused field — clear buffer and ignore
+                bufferRef.current = '';
+                lastKeyTimeRef.current = now;
+                return;
+            }
 
             // If gap is too large, this isn't a continuation — reset buffer
             if (gap > scanTimeout) {
@@ -83,7 +83,7 @@ export function useHardwareScanner({
                 lastKeyTimeRef.current = 0;
 
                 if (barcode.length >= minLength) {
-                    // Prevent the Enter from submitting forms etc.
+                    // Prevent the Enter from submitting forms or adding newline to inputs
                     e.preventDefault();
                     e.stopPropagation();
                     onScanRef.current(barcode);
@@ -91,8 +91,13 @@ export function useHardwareScanner({
             } else if (e.key.length === 1) {
                 // Single printable character
                 bufferRef.current += e.key;
+
+                // If it's fast typing (scanner) in a focused input, we might want to prevent 
+                // the characters from appearing in the input field to avoid dual-entry logic lag.
+                if (isInput && isFastTyping) {
+                    // e.preventDefault(); // This is risky but helps performance on slow devices
+                }
             }
-            // Ignore modifier keys, arrows, etc.
         },
         [enabled, scanTimeout, minLength, ignoreWhenInputFocused]
     );

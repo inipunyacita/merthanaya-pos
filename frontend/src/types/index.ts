@@ -262,3 +262,10 @@ export interface StoreUpdate {
     phone?: string | null;
     receipt_footer?: string | null;
 }
+export interface TicketInfo {
+    shortId: string;
+    invoiceId: string;
+    total: number;
+    items: CartItem[];
+    createdAt: Date;
+}
