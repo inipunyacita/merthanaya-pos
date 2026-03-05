@@ -574,7 +574,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
         }
     }, [formatTime]);
 
-    const value: POSContextType = {
+    const value: POSContextType = React.useMemo(() => ({
         store, fetchStore,
         cart, cartTotal, addToCart, updateCartQuantity, removeFromCart, clearCart,
         cartOpen, setCartOpen,
@@ -598,7 +598,25 @@ export function POSProvider({ children }: { children: ReactNode }) {
         refreshPendingOrders, setRefreshPendingOrders: setRefreshPendingOrdersStable,
         setScanOverride,
         pendingOrdersCount, successOrdersCount, setPendingOrdersCount, setSuccessOrdersCount,
-    };
+    }), [
+        store, fetchStore, cart, cartTotal, addToCart, updateCartQuantity, removeFromCart,
+        clearCart, cartOpen, setCartOpen, quantityDialogOpen, setQuantityDialogOpen,
+        selectedProduct, setSelectedProduct, quantity, setQuantity, quantityInputMode,
+        setQuantityInputMode, unit, setUnit, nominalAmount, setNominalAmount,
+        handleQuantitySubmit, handleProductClick, scannerDialogOpen, setScannerDialogOpen,
+        handleBarcodeScan, ticketDialogOpen, setTicketDialogOpen, lastTicket,
+        submitting, handlePrintBill, selectedOrder, setSelectedOrder,
+        detailsDialogOpen, setDetailsDialogOpen, invoiceDialogOpen, setInvoiceDialogOpen,
+        processing, invoiceOrder, setInvoiceOrder, printInvoice, handleViewDetails,
+        handlePrintInvoice, handlePayOrder, handleCancelOrder, productDialogOpen,
+        setProductDialogOpen, editingProduct, setEditingProduct, formData, setFormData,
+        productScannerOpen, setProductScannerOpen, resetProductForm, openProductDialog,
+        handleProductSubmit, handleDeactivateProduct, handleReactivateProduct,
+        handleDeleteProduct, loading, setLoading, formatPrice, formatTime,
+        formatDateTime, formatSmartDate, refreshProducts, setRefreshProductsStable,
+        refreshPendingOrders, setRefreshPendingOrdersStable, setScanOverride,
+        pendingOrdersCount, successOrdersCount,
+    ]);
 
     return <POSContext.Provider value={value}>{children}</POSContext.Provider>;
 }

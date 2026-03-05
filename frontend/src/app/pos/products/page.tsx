@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { Product, PRODUCT_CATEGORIES } from '@/types';
 import { productApi } from '@/lib/api';
+import { useDebounce } from '@/hooks/useDebounce';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
 import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 import { POSLayout, usePOS } from '@/components/pos';
@@ -38,6 +39,7 @@ export default function ManageProductsPage() {
     const [managedProducts, setManagedProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [manageSearch, setManageSearch] = useState('');
+    const debouncedManageSearch = useDebounce(manageSearch, 300);
     const [productPage, setProductPage] = useState(1);
     const [totalManagedProducts, setTotalManagedProducts] = useState(0);
     const [showBarcode, setShowBarcode] = useState(false);
@@ -45,7 +47,7 @@ export default function ManageProductsPage() {
     const fetchManagedProducts = useCallback(async () => {
         try {
             setLoading(true);
-            const params = { page: productPage, page_size: MANAGE_PAGE_SIZE, search: manageSearch || undefined, include_inactive: true };
+            const params = { page: productPage, page_size: MANAGE_PAGE_SIZE, search: debouncedManageSearch || undefined, include_inactive: true };
             const response = await productApi.list(params);
             setManagedProducts(response.products);
             setTotalManagedProducts(response.total);
@@ -55,7 +57,7 @@ export default function ManageProductsPage() {
         } finally {
             setLoading(false);
         }
-    }, [productPage, manageSearch]);
+    }, [productPage, debouncedManageSearch]);
 
     useEffect(() => {
         fetchManagedProducts();

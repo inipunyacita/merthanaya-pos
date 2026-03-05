@@ -43,10 +43,25 @@ api.interceptors.request.use(async (config) => {
     return config;
 });
 
+// Simple in-memory cache for GET requests that rarely change
+const cache: Record<string, any> = {};
+
 // Product API
 export const productApi = {
     list: async (params?: { category?: string; active_only?: boolean; search?: string; page?: number; page_size?: number }) => {
+        // Cache the default first page (no search, no category) to make navigation instant
+        const isDefaultFirstPage = !params?.category && !params?.search && (!params?.page || params.page === 1);
+        const cacheKey = 'products_default';
+
+        if (isDefaultFirstPage && cache[cacheKey]) {
+            return cache[cacheKey];
+        }
+
         const response = await api.get<ProductListResponse>('/products/', { params });
+
+        if (isDefaultFirstPage) {
+            cache[cacheKey] = response.data;
+        }
         return response.data;
     },
 
@@ -61,16 +76,22 @@ export const productApi = {
     },
 
     create: async (product: ProductCreate) => {
+        // Invalidate product cache
+        delete cache['products_default'];
         const response = await api.post<Product>('/products/', product);
         return response.data;
     },
 
     update: async (id: string, product: ProductUpdate) => {
+        // Invalidate product cache
+        delete cache['products_default'];
         const response = await api.put<Product>(`/products/${id}`, product);
         return response.data;
     },
 
     delete: async (id: string, hardDelete = false) => {
+        // Invalidate product cache
+        delete cache['products_default'];
         const response = await api.delete(`/products/${id}`, { params: { hard_delete: hardDelete } });
         return response.data;
     },
@@ -202,11 +223,17 @@ export const usersApi = {
 // Store API
 export const storeApi = {
     getMe: async () => {
+        const cacheKey = 'store_me';
+        if (cache[cacheKey]) return cache[cacheKey];
+
         const response = await api.get<Store>('/stores/me');
+        cache[cacheKey] = response.data;
         return response.data;
     },
 
     updateMe: async (store: StoreUpdate) => {
+        // Invalidate store cache
+        delete cache['store_me'];
         const response = await api.put<Store>('/stores/me', store);
         return response.data;
     },

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Product, PRODUCT_CATEGORIES } from '@/types';
 import { productApi } from '@/lib/api';
+import { useDebounce } from '@/hooks/useDebounce';
 import { POSLayout, usePOS } from '@/components/pos';
 
 const PAGE_SIZE = 8;
@@ -26,6 +27,7 @@ export default function OrderPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 300);
     const [activeCategory, setActiveCategory] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalProducts, setTotalProducts] = useState(0);
@@ -38,7 +40,7 @@ export default function OrderPage() {
                 page_size: PAGE_SIZE
             };
             if (activeCategory !== 'all') params.category = activeCategory;
-            if (searchTerm) params.search = searchTerm;
+            if (debouncedSearch) params.search = debouncedSearch;
             const response = await productApi.list(params);
             setProducts(response.products);
             setTotalProducts(response.total);
@@ -47,7 +49,7 @@ export default function OrderPage() {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, activeCategory, searchTerm]);
+    }, [currentPage, activeCategory, debouncedSearch]);
 
     useEffect(() => {
         fetchProducts();

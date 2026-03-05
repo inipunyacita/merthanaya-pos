@@ -119,8 +119,12 @@ export async function getSession() {
     return session;
 }
 
+// In-memory cache for the user profile to speed up repeated getCurrentUser calls
+let _cachedProfile: AuthUser | null = null;
+
 /**
- * Get current user with profile
+ * Get current user with profile.
+ * Uses in-memory cache for the profile to avoid redundant DB lookups.
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
     try {
@@ -135,31 +139,33 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         if (authError) {
             // AuthSessionMissingError is expected when user is not logged in
             if (authError.name === 'AuthSessionMissingError') {
-                console.log('[getCurrentUser] No session found (expected for logged out users)');
+                console.log('[getCurrentUser] No session found');
+                _cachedProfile = null;
                 return null;
             }
-            // Just log errors, don't sign out - let the auth state listener handle it
             if (authError.name === 'TimeoutError') {
-                console.warn('[getCurrentUser] Auth check timed out, returning null (NOT signing out)');
-                return null;
+                console.warn('[getCurrentUser] Auth check timed out');
+                return _cachedProfile; // Return cached profile if we have one, better than nothing
             }
-            console.error('[getCurrentUser] Auth error:', authError.name, authError.message);
-            // Don't auto-signout on errors - just return null and let the caller handle it
+            console.error('[getCurrentUser] Auth error:', authError.name);
             return null;
         }
 
         if (!user) {
-            console.log('[getCurrentUser] No user returned from getUser()');
+            _cachedProfile = null;
             return null;
         }
 
-        console.log('[getCurrentUser] Got user:', user.id, user.email);
+        // Return cached profile if user ID matches
+        if (_cachedProfile && _cachedProfile.id === user.id) {
+            return _cachedProfile;
+        }
 
         // Try to get profile from users table (with short timeout for fast loading)
         let profile = null;
         try {
-            const timeoutPromise = new Promise<null>((resolve) => {
-                setTimeout(() => resolve(null), 3000); // 3s timeout for slow devices
+            const profileTimeout = new Promise<null>((resolve) => {
+                setTimeout(() => resolve(null), 3000); // 3s timeout
             });
 
             const profilePromise = supabase
@@ -168,36 +174,31 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
                 .eq('id', user.id)
                 .single();
 
-            const result = await Promise.race([profilePromise, timeoutPromise]);
+            const result = await Promise.race([profilePromise, profileTimeout]);
 
             if (result && 'data' in result && result.data) {
                 profile = result.data;
             }
         } catch (e) {
-            // Silently ignore - will deny access
+            // Silently ignore
         }
 
-        // SECURITY: Require profile to exist - deny access if no profile found
-        if (!profile) {
-            console.warn('[getCurrentUser] Access denied: User has no profile in users table');
+        if (!profile || !profile.is_active) {
+            _cachedProfile = null;
             return null;
         }
 
-        if (!profile.is_active) {
-            return null;
-        }
-
-        return {
+        _cachedProfile = {
             id: user.id,
             email: user.email!,
             full_name: profile.full_name,
             role: profile.role,
             is_active: profile.is_active,
         };
+
+        return _cachedProfile;
     } catch (err) {
         console.error('[getCurrentUser] Unexpected error:', err);
-        // Don't auto-signout on unexpected errors - just return null
-        // The user might just have a network hiccup, no need to force logout
         return null;
     }
 }
