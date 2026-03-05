@@ -32,7 +32,7 @@ export function POSLayout({
     onSearchKeyDown,
 }: POSLayoutProps) {
     const {
-        store, cart, pendingOrdersCount, successOrdersCount
+        store, cart, registryLoaded, pendingOrdersCount, successOrdersCount
     } = usePOSState();
 
     const {
@@ -61,6 +61,7 @@ export function POSLayout({
                                     {store?.name || 'POS'}
                                 </h1>
                                 {store?.address && <span className="text-[10px] sm:text-xs text-slate-500 truncate">{store.address}</span>}
+                                {!registryLoaded && <span className="text-[10px] text-amber-600 font-medium animate-pulse flex items-center gap-1">● Syncing index...</span>}
                             </div>
                         </div>
 

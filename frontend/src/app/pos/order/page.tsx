@@ -92,11 +92,22 @@ export default function OrderPage() {
     }, [fetchProducts]);
 
     const handleBarcodeSearch = async (barcode: string) => {
+        // Use local registry for instant lookup
+        const { getProductByBarcode } = usePOS();
+        const product = getProductByBarcode(barcode);
+
+        if (product) {
+            handleProductClick(product);
+            // Clear input without triggering a full re-render
+            if (inputRef.current) inputRef.current.value = '';
+            return;
+        }
+
+        // Fallback to API only if not in registry
         try {
-            const product = await productApi.getByBarcode(barcode);
-            if (product) {
-                handleProductClick(product);
-                // Clear input without triggering a full re-render
+            const freshProduct = await productApi.getByBarcode(barcode);
+            if (freshProduct) {
+                handleProductClick(freshProduct);
                 if (inputRef.current) inputRef.current.value = '';
             }
         } catch (error) {

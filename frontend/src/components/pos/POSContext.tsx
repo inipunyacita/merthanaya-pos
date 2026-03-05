@@ -33,6 +33,7 @@ interface POSState {
     formData: ProductCreate;
     productScannerOpen: boolean;
     loading: boolean;
+    registryLoaded: boolean;
     pendingOrdersCount: number;
     successOrdersCount: number;
 }
@@ -87,6 +88,8 @@ interface POSActions {
     setScanOverride: (fn: ((barcode: string) => void) | null) => void;
     setPendingOrdersCount: (count: number) => void;
     setSuccessOrdersCount: (count: number) => void;
+    syncProductRegistry: () => Promise<void>;
+    getProductByBarcode: (barcode: string) => Product | null;
 }
 
 const POSStateContext = createContext<POSState | undefined>(undefined);
@@ -127,6 +130,11 @@ export function POSProvider({ children }: { children: ReactNode }) {
     const [refreshPendingOrdersState, setRefreshPendingOrders] = useState<() => void>(() => () => { });
     const scanOverrideRef = useRef<((barcode: string) => void) | null>(null);
 
+    // High-performance product indexing (non-reactive for speed)
+    const productBarcodeMap = useRef<Map<string, Product>>(new Map());
+    const productIdMap = useRef<Map<string, Product>>(new Map());
+    const [registryLoaded, setRegistryLoaded] = useState(false);
+
     // Cart Total (derived)
     const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0), [cart]);
 
@@ -140,17 +148,82 @@ export function POSProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    useEffect(() => { fetchStore(); }, [fetchStore]);
+    const syncProductRegistry = useCallback(async () => {
+        try {
+            console.log('[POSContext] Syncing product registry...');
+
+            // 1. Try to hydrate from localStorage first for instant startup
+            if (typeof window !== 'undefined') {
+                const cached = localStorage.getItem('pos_product_registry');
+                if (cached && !registryLoaded) {
+                    try {
+                        const { products, timestamp } = JSON.parse(cached);
+                        // Use cache if it's less than 4 hours old
+                        if (Date.now() - timestamp < 4 * 60 * 60 * 1000) {
+                            const bMap = new Map<string, Product>();
+                            const iMap = new Map<string, Product>();
+                            products.forEach((p: Product) => {
+                                if (p.barcode) bMap.set(p.barcode, p);
+                                iMap.set(p.id, p);
+                            });
+                            productBarcodeMap.current = bMap;
+                            productIdMap.current = iMap;
+                            setRegistryLoaded(true);
+                            console.log(`[POSContext] Hydrated from cache: ${products.length} products`);
+                        }
+                    } catch (e) { console.error('Cache parse error', e); }
+                }
+            }
+
+            // 2. Fetch fresh data from API
+            const response = await productApi.list({ page_size: 2000, active_only: true });
+
+            const bMap = new Map<string, Product>();
+            const iMap = new Map<string, Product>();
+
+            response.products.forEach((p: Product) => {
+                if (p.barcode) bMap.set(p.barcode, p);
+                iMap.set(p.id, p);
+            });
+
+            productBarcodeMap.current = bMap;
+            productIdMap.current = iMap;
+
+            // 3. Update localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('pos_product_registry', JSON.stringify({
+                    products: response.products,
+                    timestamp: Date.now()
+                }));
+            }
+
+            setRegistryLoaded(true);
+            console.log(`[POSContext] Registry synced: ${response.products.length} products`);
+        } catch (error) {
+            console.error('[POSContext] Failed to sync registry:', error);
+        }
+    }, [registryLoaded]);
+
+    const getProductByBarcode = useCallback((barcode: string) => {
+        return productBarcodeMap.current.get(barcode) || null;
+    }, []);
+
+    useEffect(() => {
+        fetchStore();
+        syncProductRegistry();
+    }, [fetchStore, syncProductRegistry]);
 
     const addToCart = useCallback((product: Product, qty: number) => {
         setCart((prev) => {
-            const existing = prev.find((item) => item.product.id === product.id);
-            if (existing) {
-                return prev.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + qty } : item);
+            const index = prev.findIndex((item) => item.product.id === product.id);
+            if (index > -1) {
+                const newCart = [...prev];
+                newCart[index] = { ...newCart[index], quantity: newCart[index].quantity + qty };
+                return newCart;
             }
             return [...prev, { product, quantity: qty }];
         });
-        toast.success(`Added ${product.name}`);
+        toast.success(`Added ${product.name}`, { duration: 1000 }); // Short duration for performance
     }, []);
 
     const updateCartQuantity = useCallback((productId: string, qty: number) => {
@@ -210,6 +283,16 @@ export function POSProvider({ children }: { children: ReactNode }) {
             scanOverrideRef.current(barcode);
             return;
         }
+
+        // 1. Try local registry first (Sub-1ms)
+        const localProduct = getProductByBarcode(barcode);
+        if (localProduct) {
+            handleProductClick(localProduct);
+            toast.success('Found: ' + localProduct.name);
+            return;
+        }
+
+        // 2. Fallback to API if not in registry
         try {
             const product = await productApi.getByBarcode(barcode);
             if (product) {
@@ -219,7 +302,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
         } catch {
             toast.error('Not Found: ' + barcode);
         }
-    }, [handleProductClick, productScannerOpen]);
+    }, [handleProductClick, productScannerOpen, getProductByBarcode]);
 
     useHardwareScanner({
         onScan: handleBarcodeScan,
@@ -345,12 +428,12 @@ export function POSProvider({ children }: { children: ReactNode }) {
         store, cart, cartTotal, cartOpen, quantityDialogOpen, selectedProduct, quantity, quantityInputMode,
         nominalAmount, unit, scannerDialogOpen, ticketDialogOpen, lastTicket, submitting, selectedOrder,
         detailsDialogOpen, invoiceDialogOpen, invoiceOrder, processing, productDialogOpen, editingProduct,
-        formData, productScannerOpen, loading, pendingOrdersCount, successOrdersCount
+        formData, productScannerOpen, loading, registryLoaded, pendingOrdersCount, successOrdersCount
     }), [
         store, cart, cartTotal, cartOpen, quantityDialogOpen, selectedProduct, quantity, quantityInputMode,
         nominalAmount, unit, scannerDialogOpen, ticketDialogOpen, lastTicket, submitting, selectedOrder,
         detailsDialogOpen, invoiceDialogOpen, invoiceOrder, processing, productDialogOpen, editingProduct,
-        formData, productScannerOpen, loading, pendingOrdersCount, successOrdersCount
+        formData, productScannerOpen, loading, registryLoaded, pendingOrdersCount, successOrdersCount
     ]);
 
     const actionsValue = useMemo(() => ({
@@ -365,7 +448,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
         refreshProducts: refreshProductsState, setRefreshProducts: (cb: () => void) => setRefreshProducts(() => cb),
         refreshPendingOrders: refreshPendingOrdersState, setRefreshPendingOrders: (cb: () => void) => setRefreshPendingOrders(() => cb),
         setScanOverride: (fn: ((b: string) => void) | null) => { scanOverrideRef.current = fn; },
-        setPendingOrdersCount, setSuccessOrdersCount
+        setPendingOrdersCount, setSuccessOrdersCount, syncProductRegistry, getProductByBarcode
     }), [
         fetchStore, addToCart, updateCartQuantity, removeFromCart, clearCart, setCartOpen, setQuantityDialogOpen,
         setSelectedProduct, setQuantity, setQuantityInputMode, setNominalAmount, handleQuantitySubmit,
@@ -374,7 +457,8 @@ export function POSProvider({ children }: { children: ReactNode }) {
         printInvoice, handleViewDetails, handlePrintInvoice, handlePayOrder, handleCancelOrder, setProductDialogOpen,
         setEditingProduct, setProductScannerOpen, resetProductForm, openProductDialog, handleProductSubmit,
         handleDeactivateProduct, handleReactivateProduct, handleDeleteProduct, setLoading, formatPrice,
-        formatTime, formatDateTime, formatSmartDate, refreshProductsState, refreshPendingOrdersState
+        formatTime, formatDateTime, formatSmartDate, refreshProductsState, refreshPendingOrdersState,
+        syncProductRegistry, getProductByBarcode
     ]);
 
     return (

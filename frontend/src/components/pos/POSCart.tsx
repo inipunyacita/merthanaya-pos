@@ -124,7 +124,7 @@ export const POSCart = memo(function POSCart() {
                         <span className="text-2xl font-bold text-slate-800">{formatPrice(cartTotal)}</span>
                     </div>
                     <Button
-                        className="w-full h-14 text-lg bg-linear-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                        className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
                         onClick={handlePrintBill}
                         disabled={cart.length === 0 || submitting}
                     >
