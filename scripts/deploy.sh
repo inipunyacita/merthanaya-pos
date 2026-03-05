@@ -66,7 +66,10 @@ docker compose down --remove-orphans || true
 
 # Build and start containers
 echo -e "${YELLOW}🔨 Building and starting containers...${NC}"
-docker compose up -d $BUILD_FLAG
+if [ -n "$BUILD_FLAG" ]; then
+    docker compose build --no-cache
+fi
+docker compose up -d
 
 # Wait for services to be healthy
 echo -e "${YELLOW}⏳ Waiting for services to be healthy...${NC}"
