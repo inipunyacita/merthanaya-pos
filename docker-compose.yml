@@ -10,19 +10,14 @@ services:
       - ./backend/.env
 
   # Next.js Frontend — exposed on host port 3002
+  # .env.production is copied into the Docker build context automatically
   frontend:
     build:
       context: ./frontend
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: merthanaya-frontend
     restart: unless-stopped
     ports:
       - "3002:3000"
-    env_file:
-      - ./frontend/.env.production
     depends_on:
       - backend
 
