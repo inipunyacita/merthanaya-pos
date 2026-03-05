@@ -127,7 +127,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         // Add timeout to getUser() to prevent hanging on stale sessions
         const userPromise = supabase.auth.getUser();
         const timeoutPromise = new Promise<{ data: { user: null }, error: any }>((resolve) => {
-            setTimeout(() => resolve({ data: { user: null }, error: { name: 'TimeoutError', message: 'Auth check timed out' } }), 3000);
+            setTimeout(() => resolve({ data: { user: null }, error: { name: 'TimeoutError', message: 'Auth check timed out' } }), 8000);
         });
 
         const { data: { user }, error: authError } = await Promise.race([userPromise, timeoutPromise]) as any;
@@ -159,7 +159,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         let profile = null;
         try {
             const timeoutPromise = new Promise<null>((resolve) => {
-                setTimeout(() => resolve(null), 500); // 500ms timeout for fast UX
+                setTimeout(() => resolve(null), 3000); // 3s timeout for slow devices
             });
 
             const profilePromise = supabase
@@ -209,7 +209,7 @@ export async function getAccessToken(): Promise<string | null> {
     try {
         const sessionPromise = getSession();
         const timeoutPromise = new Promise<null>((resolve) => {
-            setTimeout(() => resolve(null), 1500); // 1.5s timeout for token fetch
+            setTimeout(() => resolve(null), 8000); // 8s timeout for slow devices (token refresh needs network)
         });
 
         const session = await Promise.race([sessionPromise, timeoutPromise]);
