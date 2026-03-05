@@ -78,6 +78,7 @@ app.add_middleware(
         "http://localhost:3000",      # Next.js dev server
         "http://127.0.0.1:3000",
         "http://localhost:3001",      # Alternative port
+        "https://merthanaya.cakatech.cloud",        # Production
         "https://merthanayastaging.cakatech.cloud",
         "https://antigravity.cakatech.cloud",      # Cloudflare Tunnel (frontend)
         "https://api-antigravity.cakatech.cloud",  # Cloudflare Tunnel (backend)
