@@ -52,14 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }, 10000); // Increased to 10s for slow Android 9 devices
 
             try {
-                // Parallelize user refresh and store fetching for faster initial load
-                await Promise.all([
-                    refreshUser(),
-                    // We don't have direct access to fetchStore here, but we can call it 
-                    // if we move it to a shared lib or just let POSContext handle it.
-                    // Actually, AuthContext should only concern itself with the user.
-                    // POSContext already has useEffect for fetchStore.
-                ]);
+                // IMPORTANT: Wait for Supabase to recover the session from localStorage
+                // before we do anything else. This prevents the "blank user" race condition.
+                const { data: { session } } = await supabase.auth.getSession();
+                console.log('[AuthContext] Initial session check:', session ? 'Session found' : 'No session');
+
+                // Parallelize user refresh and other stable init tasks
+                await refreshUser();
+
                 console.log('[AuthContext] Auth initialized successfully');
             } catch (error) {
                 console.error('[AuthContext] Auth init error:', error);

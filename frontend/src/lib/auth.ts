@@ -161,11 +161,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
             return _cachedProfile;
         }
 
-        // Try to get profile from users table (with short timeout for fast loading)
+        // Try to get profile from users table (with generous timeout for slow cold starts)
         let profile = null;
         try {
             const profileTimeout = new Promise<null>((resolve) => {
-                setTimeout(() => resolve(null), 3000); // 3s timeout
+                setTimeout(() => resolve(null), 12000); // Increased to 12s
             });
 
             const profilePromise = supabase
@@ -178,12 +178,27 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
             if (result && 'data' in result && result.data) {
                 profile = result.data;
+            } else if (result === null) {
+                console.warn('[getCurrentUser] Profile fetch timed out, falling back to cache/metadata');
+                // If we have a cached profile for this user, keep using it instead of logging out
+                if (_cachedProfile && _cachedProfile.id === user.id) return _cachedProfile;
             }
         } catch (e) {
-            // Silently ignore
+            console.error('[getCurrentUser] Profile fetch error:', e);
         }
 
-        if (!profile || !profile.is_active) {
+        // Only force logout if we explicitly confirmed the user is inactive or the profile is definitely missing
+        if (!profile) {
+            // If we have no profile AND no cache, we can't proceed
+            if (!_cachedProfile || _cachedProfile.id !== user.id) {
+                console.error('[getCurrentUser] No profile found and no cache - access denied');
+                return null;
+            }
+            return _cachedProfile;
+        }
+
+        if (!profile.is_active) {
+            console.error('[getCurrentUser] User is deactivated');
             _cachedProfile = null;
             return null;
         }
