@@ -25,22 +25,30 @@ const ProductCard = memo(function ProductCard({
     formatPrice: (pr: number) => string
 }) {
     return (
-        <Card className="bg-white border-slate-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-200 cursor-pointer group" onClick={() => onClick(product)}>
+        <Card
+            className="bg-white border-slate-200 active:scale-95 transition-transform cursor-pointer"
+            onClick={() => onClick(product)}
+        >
             <CardContent className="p-2 sm:p-3">
                 {product.image_url ? (
-                    <img src={product.image_url} alt={product.name} className="w-full h-16 sm:h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition" />
+                    <img
+                        src={product.image_url}
+                        alt={product.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-16 sm:h-24 object-cover rounded-md mb-2"
+                    />
                 ) : (
-                    <div className="w-full h-16 sm:h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-lg mb-2 flex items-center justify-center">
-                        <span className="text-2xl sm:text-3xl">📦</span>
+                    <div className="w-full h-16 sm:h-24 bg-slate-100 rounded-md mb-2 flex items-center justify-center">
+                        <span className="text-xl sm:text-2xl">📦</span>
                     </div>
                 )}
-                <h3 className="text-slate-800 font-medium text-xs sm:text-sm truncate">{product.name}</h3>
-                <Badge variant="outline" className="text-[10px] sm:text-xs border-indigo-300 text-indigo-600 bg-indigo-50 mt-1">{product.category}</Badge>
-                <div className="mt-1">
-                    <span className="text-green-600 font-mono text-xs sm:text-sm font-semibold">
+                <h3 className="text-slate-800 font-medium text-[11px] sm:text-sm truncate leading-tight">{product.name}</h3>
+                <div className="flex items-center justify-between mt-1">
+                    <span className="text-emerald-600 font-mono text-[11px] sm:text-sm font-bold">
                         {formatPrice(product.price)}
-                        <span className="text-gray-500 font-normal">/{product.unit_type === 'weight' ? 'kg' : product.unit_type === 'pcs' ? 'pcs' : 'item'}</span>
                     </span>
+                    <Badge variant="outline" className="text-[9px] px-1 h-4 border-slate-200 text-slate-500 font-normal">{product.category}</Badge>
                 </div>
             </CardContent>
         </Card>
@@ -53,6 +61,8 @@ export default function OrderPage() {
         setScannerDialogOpen,
         formatPrice,
         store,
+        getProductsLocal,
+        registryLoaded
     } = usePOS();
 
     const [products, setProducts] = useState<Product[]>([]);
@@ -65,6 +75,24 @@ export default function OrderPage() {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const fetchProducts = useCallback(async (searchQuery?: string) => {
+        const finalSearch = searchQuery !== undefined ? searchQuery : inputRef.current?.value;
+
+        // 1. If registry is loaded, use local filtering (Sub-100ms)
+        if (registryLoaded) {
+            console.log('[OrderPage] Using local product index...');
+            const { products: localProducts, total } = getProductsLocal({
+                category: activeCategory,
+                search: finalSearch,
+                page: currentPage,
+                page_size: PAGE_SIZE
+            });
+            setProducts(localProducts);
+            setTotalProducts(total);
+            setLoading(false);
+            return;
+        }
+
+        // 2. Fallback to API if registry not yet ready
         try {
             setLoading(true);
             const params: { category?: string; search?: string; page?: number; page_size?: number } = {
@@ -72,9 +100,6 @@ export default function OrderPage() {
                 page_size: PAGE_SIZE
             };
             if (activeCategory !== 'all') params.category = activeCategory;
-
-            // If searchQuery is provided, use it. Otherwise, read from ref (uncontrolled)
-            const finalSearch = searchQuery !== undefined ? searchQuery : inputRef.current?.value;
             if (finalSearch) params.search = finalSearch;
 
             const response = await productApi.list(params);
@@ -85,11 +110,11 @@ export default function OrderPage() {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, activeCategory]);
+    }, [currentPage, activeCategory, registryLoaded, getProductsLocal]);
 
     useEffect(() => {
         fetchProducts();
-    }, [fetchProducts]);
+    }, [fetchProducts, registryLoaded]); // Re-run when registry loads to switch to local mode
 
     const handleBarcodeSearch = async (barcode: string) => {
         // Use local registry for instant lookup

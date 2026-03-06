@@ -90,6 +90,7 @@ interface POSActions {
     setSuccessOrdersCount: (count: number) => void;
     syncProductRegistry: () => Promise<void>;
     getProductByBarcode: (barcode: string) => Product | null;
+    getProductsLocal: (params: { category?: string; search?: string; page?: number; page_size?: number }) => { products: Product[]; total: number };
 }
 
 const POSStateContext = createContext<POSState | undefined>(undefined);
@@ -208,6 +209,34 @@ export function POSProvider({ children }: { children: ReactNode }) {
         return productBarcodeMap.current.get(barcode) || null;
     }, []);
 
+    const getProductsLocal = useCallback((params: { category?: string; search?: string; page?: number; page_size?: number }) => {
+        const { category, search, page = 1, page_size = 20 } = params;
+        let all = Array.from(productIdMap.current.values());
+
+        // 1. Filter by category
+        if (category && category !== 'all') {
+            all = all.filter(p => p.category === category);
+        }
+
+        // 2. Filter by search (name or barcode)
+        if (search) {
+            const s = search.toLowerCase();
+            all = all.filter(p =>
+                p.name.toLowerCase().includes(s) ||
+                (p.barcode && p.barcode.toLowerCase().includes(s))
+            );
+        }
+
+        // 3. Sort (e.g., active first, then by name)
+        all.sort((a, b) => a.name.localeCompare(b.name));
+
+        const total = all.length;
+        const start = (page - 1) * page_size;
+        const products = all.slice(start, start + page_size);
+
+        return { products, total };
+    }, []);
+
     useEffect(() => {
         fetchStore();
         syncProductRegistry();
@@ -312,18 +341,50 @@ export function POSProvider({ children }: { children: ReactNode }) {
 
     const handlePrintBill = useCallback(async () => {
         if (cart.length === 0) return;
+
+        // 1. Snapshot current cart for the receipt
+        const cartSnapshot = [...cart];
+        const totalSnapshot = cartTotal;
+        const tempId = `NEW-${Date.now().toString().slice(-4)}`;
+
         try {
             setSubmitting(true);
-            const response = await orderApi.create({ items: cart.map(i => ({ product_id: i.product.id, quantity: i.quantity })) });
-            setLastTicket({ shortId: response.short_id, invoiceId: response.invoice_id, total: response.total_amount, items: [...cart], createdAt: new Date() });
+
+            // 2. IMMEDIATE FEEDBACK: Clear cart and show "Local" ticket info instantly
+            // This makes the transition feel sub-1s even if the network is slow.
+            setLastTicket({
+                shortId: tempId,
+                invoiceId: 'Creating order...',
+                total: totalSnapshot,
+                items: cartSnapshot,
+                createdAt: new Date()
+            });
             setTicketDialogOpen(true);
             setCartOpen(false);
             clearCart();
-            toast.success('Order created!');
+
+            // 3. BACKGROUND API CALL
+            const response = await orderApi.create({
+                items: cartSnapshot.map(i => ({ product_id: i.product.id, quantity: i.quantity }))
+            });
+
+            // 4. Update with real server data once ready
+            setLastTicket({
+                shortId: response.short_id,
+                invoiceId: response.invoice_id,
+                total: response.total_amount,
+                items: cartSnapshot,
+                createdAt: new Date()
+            });
+
+            toast.success('Order synchronized!');
+        } catch (error) {
+            toast.error('Failed to sync order, but receipt is ready');
+            console.error('Submit error:', error);
         } finally {
             setSubmitting(false);
         }
-    }, [cart, clearCart]);
+    }, [cart, cartTotal, clearCart]);
 
     const handleViewDetails = useCallback(async (id: string) => {
         try {
@@ -448,7 +509,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
         refreshProducts: refreshProductsState, setRefreshProducts: (cb: () => void) => setRefreshProducts(() => cb),
         refreshPendingOrders: refreshPendingOrdersState, setRefreshPendingOrders: (cb: () => void) => setRefreshPendingOrders(() => cb),
         setScanOverride: (fn: ((b: string) => void) | null) => { scanOverrideRef.current = fn; },
-        setPendingOrdersCount, setSuccessOrdersCount, syncProductRegistry, getProductByBarcode
+        setPendingOrdersCount, setSuccessOrdersCount, syncProductRegistry, getProductByBarcode, getProductsLocal
     }), [
         fetchStore, addToCart, updateCartQuantity, removeFromCart, clearCart, setCartOpen, setQuantityDialogOpen,
         setSelectedProduct, setQuantity, setQuantityInputMode, setNominalAmount, handleQuantitySubmit,
@@ -458,7 +519,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
         setEditingProduct, setProductScannerOpen, resetProductForm, openProductDialog, handleProductSubmit,
         handleDeactivateProduct, handleReactivateProduct, handleDeleteProduct, setLoading, formatPrice,
         formatTime, formatDateTime, formatSmartDate, refreshProductsState, refreshPendingOrdersState,
-        syncProductRegistry, getProductByBarcode
+        syncProductRegistry, getProductByBarcode, getProductsLocal
     ]);
 
     return (
