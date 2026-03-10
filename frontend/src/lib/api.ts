@@ -28,7 +28,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://merthanaya.caka
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 10000, // 10 second timeout for all requests
+    timeout: 30000, // 30 second timeout for all requests
     headers: {
         'Content-Type': 'application/json',
     },

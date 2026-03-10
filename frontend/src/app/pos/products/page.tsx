@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Pencil, PowerOff, Power, Trash2, ScanLine } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Pencil, PowerOff, Power, Trash2, ScanLine, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { Product, PRODUCT_CATEGORIES } from '@/types';
 import { productApi } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { BarcodeScanner } from '@/components/scanner/BarcodeScanner';
+import { CameraCapture } from '@/components/scanner/CameraCapture';
 import { useHardwareScanner } from '@/hooks/useHardwareScanner';
 import { POSLayout, usePOSState, usePOSActions } from '@/components/pos';
 import { toast } from 'sonner';
@@ -35,9 +37,51 @@ export default function ManageProductsPage() {
     const [productPage, setProductPage] = useState(1);
     const [totalManagedProducts, setTotalManagedProducts] = useState(0);
     const [showBarcode, setShowBarcode] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [cameraOpen, setCameraOpen] = useState(false);
 
     // Uncontrolled search input ref
     const searchRef = useRef<HTMLInputElement>(null);
+
+    const uploadFileToSupabase = async (file: File) => {
+        try {
+            setIsUploading(true);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('products')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('products')
+                .getPublicUrl(filePath);
+
+            setFormData(prev => ({ ...prev, image_url: publicUrl }));
+            toast.success('Image uploaded successfully');
+            setCameraOpen(false); // Close camera if it was open
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            toast.error('Failed to upload image. Make sure "products" bucket exists.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        await uploadFileToSupabase(file);
+        // Reset input value to allow picking the exact same file again if needed
+        e.target.value = '';
+    };
+
+    const handleCameraCapture = async (file: File) => {
+        await uploadFileToSupabase(file);
+    };
 
     const fetchManagedProducts = useCallback(async (searchQuery?: string) => {
         try {
@@ -238,25 +282,83 @@ export default function ManageProductsPage() {
                                     </div>
                                 </div>
                             )}
-                            {/* Image URL */}
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="image_url" className="text-right text-xs leading-tight">Image URL</Label>
-                                <div className="col-span-3">
-                                    <Input
-                                        id="image_url"
-                                        type="url"
-                                        value={formData.image_url || ''}
-                                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value || null })}
-                                        className="bg-white border-slate-300 text-slate-900"
-                                        placeholder="https://example.com/image.jpg"
-                                    />
-                                    {formData.image_url && (
-                                        <img
-                                            src={formData.image_url}
-                                            alt="Preview"
-                                            className="mt-2 w-full h-24 object-cover rounded-lg border border-slate-200"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            {/* Image Section */}
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right pt-2 text-xs sm:text-sm">Image</Label>
+                                <div className="col-span-3 space-y-3">
+                                    {/* Action Buttons with Transparent Overlay for Gallery only */}
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => setCameraOpen(true)}
+                                                disabled={isUploading}
+                                                className={`w-full gap-1 sm:gap-2 border-slate-300 text-slate-700 h-9 sm:h-10 text-xs sm:text-sm ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+                                            >
+                                                <Camera className="h-4 w-4" />
+                                                <span>Camera</span>
+                                            </Button>
+                                        </div>
+
+                                        <div className="relative flex-1">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer disabled:pointer-events-none"
+                                                onChange={handleFileUpload}
+                                                disabled={isUploading}
+                                                title="Choose from Gallery"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={isUploading}
+                                                className={`w-full gap-1 sm:gap-2 border-slate-300 text-slate-700 h-9 sm:h-10 text-xs sm:text-sm ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+                                            >
+                                                <ImageIcon className="h-4 w-4" />
+                                                <span>Gallery</span>
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* URL Input (Legacy/Manual) */}
+                                    <div className="relative">
+                                        <Input
+                                            id="image_url"
+                                            type="url"
+                                            value={formData.image_url || ''}
+                                            onChange={(e) => setFormData({ ...formData, image_url: e.target.value || null })}
+                                            className="bg-white border-slate-300 text-slate-900 pr-10 text-xs sm:text-sm"
+                                            placeholder="Or paste image URL here..."
+                                            disabled={isUploading}
                                         />
+                                        {isUploading && (
+                                            <div className="absolute right-3 top-2.5">
+                                                <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Preview */}
+                                    {formData.image_url && (
+                                        <div className="relative group">
+                                            <img
+                                                src={formData.image_url}
+                                                alt="Preview"
+                                                className="w-full h-24 sm:h-32 object-cover rounded-lg border border-slate-200 shadow-sm"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                size="icon"
+                                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => setFormData({ ...formData, image_url: null })}
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -366,6 +468,13 @@ export default function ManageProductsPage() {
                     )}
                 </DialogContent>
             </Dialog>
+            {/* Camera Capture Dialog */}
+            <CameraCapture
+                open={cameraOpen}
+                onOpenChange={setCameraOpen}
+                onCapture={handleCameraCapture}
+                isUploading={isUploading}
+            />
         </POSLayout>
     );
 }

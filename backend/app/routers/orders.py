@@ -197,25 +197,31 @@ async def get_pending_orders(
         result = query.order("created_at", desc=False).execute()
         
         orders = []
-        for order_data in result.data:
-            # Get item count for each order
-            items_result = db.table("order_items")\
-                .select("id", count="exact")\
-                .eq("order_id", order_data["id"])\
-                .execute()
+        if result.data:
+            # Bulk fetch items to fix N+1 query problem
+            order_ids = [str(o["id"]) for o in result.data]
+            items_result = db.table("order_items").select("order_id").in_("order_id", order_ids).execute()
             
-            item_count = items_result.count if items_result.count else 0
-            
-            orders.append(OrderSummary(
-                id=order_data["id"],
-                daily_id=order_data["daily_id"],
-                short_id=format_daily_id(order_data["daily_id"]),
-                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
-                total_amount=Decimal(str(order_data["total_amount"])),
-                status=order_data["status"],
-                item_count=item_count,
-                created_at=order_data["created_at"]
-            ))
+            # Count items per order in memory
+            item_counts = {}
+            if items_result.data:
+                for item in items_result.data:
+                    oid = item["order_id"]
+                    item_counts[oid] = item_counts.get(oid, 0) + 1
+                    
+            for order_data in result.data:
+                item_count = item_counts.get(order_data["id"], 0)
+                
+                orders.append(OrderSummary(
+                    id=order_data["id"],
+                    daily_id=order_data["daily_id"],
+                    short_id=format_daily_id(order_data["daily_id"]),
+                    invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
+                    total_amount=Decimal(str(order_data["total_amount"])),
+                    status=order_data["status"],
+                    item_count=item_count,
+                    created_at=order_data["created_at"]
+                ))
         
         return PendingOrdersResponse(orders=orders, total=len(orders))
     
@@ -261,25 +267,29 @@ async def get_paid_orders(
         result = query.order("updated_at", desc=True).range(offset, offset + page_size - 1).execute()
         
         orders = []
-        for order_data in result.data:
-            # Get item count for each order
-            items_result = db.table("order_items")\
-                .select("id", count="exact")\
-                .eq("order_id", order_data["id"])\
-                .execute()
+        if result.data:
+            order_ids = [str(o["id"]) for o in result.data]
+            items_result = db.table("order_items").select("order_id").in_("order_id", order_ids).execute()
             
-            item_count = items_result.count if items_result.count else 0
-            
-            orders.append(OrderSummary(
-                id=order_data["id"],
-                daily_id=order_data["daily_id"],
-                short_id=format_daily_id(order_data["daily_id"]),
-                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
-                total_amount=Decimal(str(order_data["total_amount"])),
-                status=order_data["status"],
-                item_count=item_count,
-                created_at=order_data["created_at"]
-            ))
+            item_counts = {}
+            if items_result.data:
+                for item in items_result.data:
+                    oid = item["order_id"]
+                    item_counts[oid] = item_counts.get(oid, 0) + 1
+                    
+            for order_data in result.data:
+                item_count = item_counts.get(order_data["id"], 0)
+                
+                orders.append(OrderSummary(
+                    id=order_data["id"],
+                    daily_id=order_data["daily_id"],
+                    short_id=format_daily_id(order_data["daily_id"]),
+                    invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
+                    total_amount=Decimal(str(order_data["total_amount"])),
+                    status=order_data["status"],
+                    item_count=item_count,
+                    created_at=order_data["created_at"]
+                ))
         
         return PaginatedOrdersResponse(
             orders=orders,
@@ -471,25 +481,29 @@ async def get_transaction_history(
         result = query.order("created_at", desc=True).range(offset, offset + page_size - 1).execute()
         
         orders = []
-        for order_data in result.data or []:
-            # Get item count
-            items_result = db.table("order_items")\
-                .select("id", count="exact")\
-                .eq("order_id", order_data["id"])\
-                .execute()
+        if result.data:
+            order_ids = [str(o["id"]) for o in result.data]
+            items_result = db.table("order_items").select("order_id").in_("order_id", order_ids).execute()
             
-            item_count = items_result.count if items_result.count else 0
-            
-            orders.append(OrderSummary(
-                id=order_data["id"],
-                daily_id=order_data["daily_id"],
-                short_id=format_daily_id(order_data["daily_id"]),
-                invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
-                total_amount=Decimal(str(order_data["total_amount"])),
-                status=order_data["status"],
-                item_count=item_count,
-                created_at=order_data["created_at"]
-            ))
+            item_counts = {}
+            if items_result.data:
+                for item in items_result.data:
+                    oid = item["order_id"]
+                    item_counts[oid] = item_counts.get(oid, 0) + 1
+                    
+            for order_data in result.data:
+                item_count = item_counts.get(order_data["id"], 0)
+                
+                orders.append(OrderSummary(
+                    id=order_data["id"],
+                    daily_id=order_data["daily_id"],
+                    short_id=format_daily_id(order_data["daily_id"]),
+                    invoice_id=order_data.get("invoice_id") or generate_invoice_id(order_data["daily_id"], order_data.get("created_at")),
+                    total_amount=Decimal(str(order_data["total_amount"])),
+                    status=order_data["status"],
+                    item_count=item_count,
+                    created_at=order_data["created_at"]
+                ))
         
         return PaginatedOrdersResponse(
             orders=orders,
